@@ -13,7 +13,7 @@ const PAGE_TITLES = {
   audit: 'Audit Logs',
 };
 
-const API = 'http://localhost:8000';
+import { API } from './config';
 
 function LoginScreen({ onLogin }) {
   const [username, setUsername] = useState('');

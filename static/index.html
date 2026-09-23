@@ -1,304 +1,1056 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Axiom Gateway — Deloitte Policy Enforcement Platform</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Axiom Gateway — Policy Enforcement Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --deloitte-green: #86BC25;
+      --deloitte-green-dark: #659218;
+      --deloitte-black: #000000;
+      --deloitte-dark-gray: #1E2229;
+      --deloitte-mid-gray: #2B303A;
+      --deloitte-light-gray: #F4F5F7;
+      --deloitte-border: #3A414F;
+      --deloitte-blue: #0076A8;
+      --deloitte-amber: #FFB612;
+      --deloitte-red: #DA291C;
+      --text-main: #FFFFFF;
+      --text-muted: #9CA3AF;
+      --card-bg: #181C24;
+      --card-hover: #1E232E;
+      --font-main: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-main);
+      background-color: #0F1217;
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background-color: var(--deloitte-black);
+      border-bottom: 2px solid var(--deloitte-green);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-dot {
+      width: 12px;
+      height: 12px;
+      background-color: var(--deloitte-green);
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .brand-title span {
+      color: var(--deloitte-green);
+    }
+
+    .brand-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      border-left: 1px solid var(--deloitte-border);
+      padding-left: 12px;
+      margin-left: 12px;
+      font-weight: 500;
+    }
+
+    .config-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .input-group {
+      display: flex;
+      align-items: center;
+      background: var(--deloitte-dark-gray);
+      border: 1px solid var(--deloitte-border);
+      border-radius: 6px;
+      padding: 4px 8px;
+    }
+
+    .input-group label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-right: 6px;
+      font-weight: 600;
+    }
+
+    .input-group input {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      outline: none;
+      width: 220px;
+    }
+
+    .status-pill {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: rgba(134, 188, 37, 0.15);
+      color: var(--deloitte-green);
+      border: 1px solid rgba(134, 188, 37, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-pill .live-indicator {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--deloitte-green);
+      box-shadow: 0 0 8px var(--deloitte-green);
+    }
+
+    main {
+      flex: 1;
+      padding: 2rem;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 2rem;
+    }
+
+    @media (max-width: 1100px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .section-heading {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #fff;
+    }
+
+    .section-heading .bar {
+      width: 4px;
+      height: 18px;
+      background: var(--deloitte-green);
+      border-radius: 2px;
+    }
+
+    .action-category {
+      background: var(--card-bg);
+      border: 1px solid var(--deloitte-border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .category-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #F3F4F6;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .category-subtitle {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+
+    .buttons-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .test-card {
+      background: #202632;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .test-card:hover {
+      background: #272F3E;
+      border-color: rgba(134, 188, 37, 0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    }
+
+    .test-card:active {
+      transform: translateY(0);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 6px;
+    }
+
+    .card-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-allow {
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    .badge-escalate {
+      background: rgba(255, 182, 18, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(255, 182, 18, 0.3);
+    }
+
+    .badge-block {
+      background: rgba(218, 41, 28, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(218, 41, 28, 0.3);
+    }
+
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #fff;
+      line-height: 1.3;
+    }
+
+    .card-desc {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.35;
+    }
+
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: #9CA3AF;
+    }
+
+    .btn-run {
+      background: var(--deloitte-green);
+      color: #000;
+      border: none;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s;
+    }
+
+    .btn-run:hover {
+      background: #9bd62d;
+    }
+
+    /* Response Console Panel */
+    .console-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--deloitte-border);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      position: sticky;
+      top: 5.5rem;
+      height: calc(100vh - 7.5rem);
+    }
+
+    .console-header {
+      background: var(--deloitte-dark-gray);
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--deloitte-border);
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .console-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .console-metrics {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+    }
+
+    .metric-tag {
+      background: rgba(255, 255, 255, 0.06);
+      padding: 3px 8px;
+      border-radius: 4px;
+      color: #D1D5DB;
+    }
+
+    .console-body {
+      flex: 1;
+      padding: 1.25rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      font-family: var(--font-mono);
+    }
+
+    .result-banner {
+      padding: 0.85rem 1rem;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      font-weight: 700;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .banner-allow {
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid #22c55e;
+      color: #4ade80;
+    }
+
+    .banner-escalate {
+      background: rgba(255, 182, 18, 0.15);
+      border: 1px solid #eab308;
+      color: #fbbf24;
+    }
+
+    .banner-block {
+      background: rgba(218, 41, 28, 0.15);
+      border: 1px solid #ef4444;
+      color: #f87171;
+    }
+
+    .banner-info {
+      background: rgba(0, 118, 168, 0.15);
+      border: 1px solid #0076a8;
+      color: #38bdf8;
+    }
+
+    .json-viewer {
+      background: #0D1117;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 1rem;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      color: #E6EDF3;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      flex: 1;
+    }
+
+    .request-preview {
+      background: #151A23;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 6px;
+      padding: 0.75rem;
+      font-size: 0.75rem;
+      color: #9CA3AF;
+    }
+
+    .custom-runner {
+      background: var(--card-bg);
+      border: 1px solid var(--deloitte-border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-top: 1rem;
+    }
+
+    .custom-runner textarea {
+      width: 100%;
+      height: 140px;
+      background: #0D1117;
+      border: 1px solid var(--deloitte-border);
+      border-radius: 6px;
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      padding: 0.75rem;
+      resize: vertical;
+      outline: none;
+      margin-top: 8px;
+    }
+
+    .custom-runner textarea:focus {
+      border-color: var(--deloitte-green);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
 <body>
 
-<!-- SIDEBAR -->
-<div class="shell">
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-      <span class="brand-mark">D.</span>
-      <div class="brand-text">
-        <div class="brand-title">Axiom Gateway</div>
-        <div class="brand-sub">Policy Enforcement</div>
+  <!-- Top Navbar -->
+  <header>
+    <div class="logo-container">
+      <span class="brand-dot"></span>
+      <div class="brand-title">Deloitte <span>Axiom</span></div>
+      <div class="brand-subtitle">Zero-LLM Runtime Governance & Policy Gateway</div>
+    </div>
+    <div class="config-bar">
+      <div class="input-group">
+        <label>GATEWAY KEY:</label>
+        <input type="password" id="gatewayKey" value="gateway_internal_secret" placeholder="Bearer Key" />
+      </div>
+      <div class="status-pill">
+        <span class="live-indicator"></span>
+        GATEWAY ONLINE (:8000)
       </div>
     </div>
-    <nav class="sidebar-nav">
-      <div class="nav-section-label">MAIN</div>
-      <a class="nav-item active" data-view="ingestion" onclick="showView('ingestion')">
-        <svg viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-        Policy Ingestion
-      </a>
-      <a class="nav-item" data-view="rules" onclick="showView('rules')">
-        <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-        Rule Review
-        <span class="nav-badge" id="badge-rules">0</span>
-      </a>
-      <div class="nav-section-label">ENFORCEMENT</div>
-      <a class="nav-item" data-view="approvals" onclick="showView('approvals')">
-        <svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        Approval Queue
-        <span class="nav-badge urgent" id="badge-approvals">0</span>
-      </a>
-      <a class="nav-item" data-view="audit" onclick="showView('audit')">
-        <svg viewBox="0 0 24 24"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        Audit Log
-      </a>
-    </nav>
-    <div class="sidebar-footer">
-      <div class="server-status">
-        <span class="status-dot" id="globalStatusDot"></span>
-        <span id="globalStatusText">Connecting...</span>
-      </div>
-      <div class="base-url-row">
-        <input id="baseUrl" value="http://localhost:8000" placeholder="http://localhost:8000">
-      </div>
-    </div>
-  </aside>
+  </header>
 
-  <!-- MAIN CONTENT -->
-  <div class="main">
-    <!-- TOP BAR -->
-    <header class="topbar">
-      <div class="topbar-title" id="topbarTitle">Policy Ingestion</div>
-      <div class="topbar-right">
-        <span class="org-name">Deloitte — Axiom Platform</span>
-        <button class="btn btn-outline-sm" onclick="refreshAll()">↻ Refresh</button>
-      </div>
-    </header>
-
-    <!-- ============================================================
-         VIEW 1: POLICY INGESTION
-    ============================================================ -->
-    <section class="view active" id="view-ingestion">
-      <div class="page-header">
-        <h1>Policy Ingestion</h1>
-        <p class="page-desc">Upload policy documents for automated chunking, embedding, and offline LLM rule extraction.</p>
-      </div>
-
-      <div class="stats-row" id="ingestion-stats">
-        <div class="stat-card">
-          <div class="stat-label">Documents Ingested</div>
-          <div class="stat-value" id="stat-docs">—</div>
+  <!-- Main Body -->
+  <main>
+    <!-- Left Column: Test Suite Actions -->
+    <div class="test-suite-column">
+      
+      <!-- Section 1: Loan Disbursement -->
+      <div class="action-category">
+        <div class="category-title">
+          <span>1. Loan Disbursement Policies (Section 1)</span>
+          <span style="font-size: 0.72rem; color: #9CA3AF; font-family: var(--font-mono);">tool: loan_service</span>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Draft Rules</div>
-          <div class="stat-value" id="stat-drafts">—</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Approved Rules</div>
-          <div class="stat-value green" id="stat-approved">—</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Rejected Rules</div>
-          <div class="stat-value red" id="stat-rejected">—</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">Upload Policy Document</div>
-        <div class="card-body">
-          <div class="upload-zone" id="uploadZone">
-            <svg class="upload-icon" viewBox="0 0 24 24"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-            <div class="upload-text">Drop PDF here or <label for="fileInput" class="upload-link">browse file</label></div>
-            <div class="upload-hint">Supports PDF, DOCX, TXT, CSV, Images, Audio/Video</div>
-            <input type="file" id="fileInput" accept=".pdf,.docx,.txt,.csv,.jpg,.jpeg,.png,.mp3,.mp4,.wav" style="display:none" onchange="handleFileSelect(this)">
-          </div>
-          <div id="selectedFile" class="selected-file hidden"></div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Document Name</label>
-              <input type="text" id="docName" placeholder="e.g. Northfield-Refund-Policy-v2">
+        <div class="category-subtitle">Deterministic rules governing automatic loan tranches vs credit officer escalation</div>
+        
+        <div class="buttons-grid">
+          <!-- TC-01 -->
+          <div class="test-card" onclick="runTC01()">
+            <div>
+              <div class="card-top">
+                <span class="card-badge badge-allow">ALLOW</span>
+                <span style="font-size: 0.7rem; color: #9CA3AF;">TC-01</span>
+              </div>
+              <div class="card-title">Pre-Approved Low-Value Loan</div>
+              <div class="card-desc">Amount: ₹150,000 | customer_pre_approved: true</div>
+            </div>
+            <div class="card-footer">
+              <span>Auto-Execute</span>
+              <button class="btn-run">▶ Send</button>
             </div>
           </div>
-          <button class="btn btn-primary" onclick="uploadDocument()" id="uploadBtn" disabled>
-            Upload &amp; Ingest Document
-          </button>
-          <div id="uploadStatus" class="status-msg hidden"></div>
+
+          <!-- TC-02 -->
+          <div class="test-card" onclick="runTC02()">
+            <div>
+              <div class="card-top">
+                <span class="card-badge badge-escalate">ESCALATE</span>
+                <span style="font-size: 0.7rem; color: #9CA3AF;">TC-02</span>
+              </div>
+              <div class="card-title">Unapproved Low-Value Loan</div>
+              <div class="card-desc">Amount: ₹150,000 | customer_pre_approved: false</div>
+            </div>
+            <div class="card-footer">
+              <span>Credit Officer</span>
+              <button class="btn-run">▶ Send</button>
+            </div>
+          </div>
+
+          <!-- TC-03 -->
+          <div class="test-card" onclick="runTC03()">
+            <div>
+              <div class="card-top">
+                <span class="card-badge badge-escalate">ESCALATE</span>
+                <span style="font-size: 0.7rem; color: #9CA3AF;">TC-03</span>
+              </div>
+              <div class="card-title">Tier 2 Mid-Value Loan</div>
+              <div class="card-desc">Amount: ₹500,000 | customer_pre_approved: true</div>
+            </div>
+            <div class="card-footer">
+              <span>Credit Officer</span>
+              <button class="btn-run">▶ Send</button>
+            </div>
+          </div>
+
+          <!-- TC-04 -->
+          <div class="test-card" onclick="runTC04()">
+            <div>
+              <div class="card-top">
+                <span class="card-badge badge-escalate">ESCALATE</span>
+                <span style="font-size: 0.7rem; color: #9CA3AF;">TC-04</span>
+              </div>
+              <div class="card-title">Tier 3 High-Value Loan</div>
+              <div class="card-desc">Amount: ₹2,500,000 | Dual Sign-off Mandate</div>
+            </div>
+            <div class="card-footer">
+              <span>Dual Approval</span>
+              <button class="btn-run">▶ Send</button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-header">
-          Ingested Documents
-          <button class="btn-link" onclick="loadDocuments()">Refresh</button>
+      <!-- Section 2: Account Freeze -->
+      <div class="action-category">
+        <div class="category-title">
+          <span>2. Account Freeze Operations (Section 2)</span>
+          <span style="font-size: 0.72rem; color: #9CA3AF; font-family: var(--font-mono);">tool: banking / freeze</span>
         </div>
-        <div class="card-body p0">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Document Name</th>
-                <th>Type</th>
-                <th>Chunks</th>
-                <th>Ingested At</th>
-                <th>Content ID</th>
-              </tr>
-            </thead>
-            <tbody id="docs-table-body">
-              <tr><td colspan="5" class="empty-row">Loading documents...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+        <div class="category-subtitle">Instant protective freeze for anomalous fraud detection vs discretionary reviews</div>
+        
+        <div class="buttons-grid">
+          <!-- TC-05 -->
+          <div class="test-card" onclick="runTC05()">
+            <div>
+              <div class="card-top">
+                <span class="card-badge badge-allow">ALLOW</span>
+                <span style="font-size: 0.7rem; color: #9CA3AF;">TC-05</span>
+              </div>
+              <div class="card-title">High Fraud Score Auto-Freeze</div>
+              <div class="card-desc">fraud_score: 0.96 (&gt; 0.90 velocity anomaly)</div>
+            </div>
+            <div class="card-footer">
+              <span>Instant Freeze</span>
+              <button class="btn-run">▶ Send</button>
+            </div>
+          </div>
 
-    <!-- ============================================================
-         VIEW 2: RULE REVIEW (Phase 1 Human Approval)
-    ============================================================ -->
-    <section class="view" id="view-rules">
-      <div class="page-header">
-        <h1>Rule Review</h1>
-        <p class="page-desc">Review LLM-extracted DRAFT rules from ingested policy documents. Approve or reject each rule before it enters the enforcement engine.</p>
-      </div>
-
-      <div class="filter-bar">
-        <div class="filter-group">
-          <label>Status Filter</label>
-          <select id="ruleStatusFilter" onchange="loadRules()">
-            <option value="">All</option>
-            <option value="DRAFT" selected>DRAFT</option>
-            <option value="APPROVED">APPROVED</option>
-            <option value="REJECTED">REJECTED</option>
-          </select>
-        </div>
-        <button class="btn btn-outline-sm" onclick="loadRules()">↻ Refresh</button>
-      </div>
-
-      <div class="card" style="margin-top:12px">
-        <div class="card-body p0">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Tool</th>
-                <th>Operation</th>
-                <th>Condition</th>
-                <th>Effect</th>
-                <th>Approval Role</th>
-                <th>Source Clause</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="rules-table-body">
-              <tr><td colspan="8" class="empty-row">Loading rules...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div id="rules-status" class="status-msg hidden"></div>
-    </section>
-
-    <!-- ============================================================
-         VIEW 3: APPROVAL QUEUE (Phase 2 Escalation Queue)
-    ============================================================ -->
-    <section class="view" id="view-approvals">
-      <div class="page-header">
-        <h1>Approval Queue</h1>
-        <p class="page-desc">Escalated agent actions awaiting human review. Approving re-validates against current live policies before execution.</p>
-      </div>
-
-      <div class="stats-row">
-        <div class="stat-card">
-          <div class="stat-label">Pending</div>
-          <div class="stat-value orange" id="appr-pending">—</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Approved Today</div>
-          <div class="stat-value green" id="appr-approved">—</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Rejected Today</div>
-          <div class="stat-value red" id="appr-rejected">—</div>
+          <!-- TC-06 -->
+          <div class="test-card" onclick="runTC06()">
+            <div>
+              <div class="card-top">
+                <span class="card-badge badge-escalate">ESCALATE</span>
+                <span style="font-size: 0.7rem; color: #9CA3AF;">TC-06</span>
+              </div>
+              <div class="card-title">Discretionary Freeze Request</div>
+              <div class="card-desc">fraud_score: 0.72 (&le; 0.90 lost phone report)</div>
+            </div>
+            <div class="card-footer">
+              <span>Branch Manager</span>
+              <button class="btn-run">▶ Send</button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="filter-bar">
-        <div class="filter-group">
-          <label>Role Filter</label>
-          <select id="approvalRoleFilter" onchange="loadApprovals()">
-            <option value="">All Roles</option>
-            <option value="finance_manager">Finance Manager</option>
-            <option value="compliance_officer">Compliance Officer</option>
-            <option value="admin">Admin</option>
-          </select>
+      <!-- Section 3 & 4: Account Closure & Data Export -->
+      <div class="action-category">
+        <div class="category-title">
+          <span>3. Account Closure & Data Export (Sections 3 & 4)</span>
+          <span style="font-size: 0.72rem; color: #9CA3AF; font-family: var(--font-mono);">tool: banking / export</span>
         </div>
-        <button class="btn btn-outline-sm" onclick="loadApprovals()">↻ Refresh</button>
-      </div>
+        <div class="category-subtitle">Prohibited automated closures and mandatory Data Protection Officer sign-offs</div>
+        
+        <div class="buttons-grid">
+          <!-- TC-07 -->
+          <div class="test-card" onclick="runTC07()">
+            <div>
+              <div class="card-top">
+                <span class="card-badge badge-block">BLOCK</span>
+                <span style="font-size: 0.7rem; color: #9CA3AF;">TC-07</span>
+              </div>
+              <div class="card-title">Bot Account Closure (Prohibited)</div>
+              <div class="card-desc">initiated_by_role: "tier1_support"</div>
+            </div>
+            <div class="card-footer">
+              <span>Forbidden Action</span>
+              <button class="btn-run">▶ Send</button>
+            </div>
+          </div>
 
-      <div class="section-label">Pending Actions</div>
-      <div id="approvals-list">
-        <div class="empty-card">Loading approvals...</div>
-      </div>
-      <div id="approvals-status" class="status-msg hidden"></div>
-    </section>
+          <!-- TC-08 -->
+          <div class="test-card" onclick="runTC08()">
+            <div>
+              <div class="card-top">
+                <span class="card-badge badge-escalate">ESCALATE</span>
+                <span style="font-size: 0.7rem; color: #9CA3AF;">TC-08</span>
+              </div>
+              <div class="card-title">Branch Manager Account Closure</div>
+              <div class="card-desc">initiated_by_role: "branch_manager"</div>
+            </div>
+            <div class="card-footer">
+              <span>Compliance Officer</span>
+              <button class="btn-run">▶ Send</button>
+            </div>
+          </div>
 
-    <!-- ============================================================
-         VIEW 4: AUDIT LOG
-    ============================================================ -->
-    <section class="view" id="view-audit">
-      <div class="page-header">
-        <h1>Audit Log</h1>
-        <p class="page-desc">Immutable, SHA-256 hash-chained record of every enforcement decision. Tamper-evident by design.</p>
-      </div>
-
-      <div class="filter-bar">
-        <div class="filter-group">
-          <label>Decision Type</label>
-          <select id="auditDecisionFilter" onchange="loadAudit()">
-            <option value="">All</option>
-            <option value="ALLOW">ALLOW</option>
-            <option value="BLOCK">BLOCK</option>
-            <option value="ESCALATE">ESCALATE</option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <label>Limit</label>
-          <select id="auditLimit" onchange="loadAudit()">
-            <option value="25">25</option>
-            <option value="50" selected>50</option>
-            <option value="100">100</option>
-          </select>
-        </div>
-        <button class="btn btn-outline-sm" onclick="verifyAuditChain()">⛓ Verify Chain</button>
-        <button class="btn btn-outline-sm" onclick="loadAudit()">↻ Refresh</button>
-      </div>
-      <div id="chain-status" class="status-msg hidden" style="margin-bottom:10px"></div>
-
-      <div class="card" style="margin-top:12px">
-        <div class="card-body p0">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Timestamp</th>
-                <th>Action ID</th>
-                <th>Agent</th>
-                <th>Tool</th>
-                <th>Operation</th>
-                <th>Decision</th>
-                <th>Matched Rule</th>
-                <th>Hash</th>
-              </tr>
-            </thead>
-            <tbody id="audit-table-body">
-              <tr><td colspan="8" class="empty-row">Loading audit log...</td></tr>
-            </tbody>
-          </table>
+          <!-- TC-09 -->
+          <div class="test-card" onclick="runTC09()">
+            <div>
+              <div class="card-top">
+                <span class="card-badge badge-escalate">ESCALATE</span>
+                <span style="font-size: 0.7rem; color: #9CA3AF;">TC-09</span>
+              </div>
+              <div class="card-title">Bulk Customer Data Export</div>
+              <div class="card-desc">records_count: 4500 | Format: CSV</div>
+            </div>
+            <div class="card-footer">
+              <span>Data Protection Officer</span>
+              <button class="btn-run">▶ Send</button>
+            </div>
+          </div>
         </div>
       </div>
-    </section>
 
-  </div><!-- /main -->
-</div><!-- /shell -->
+      <!-- Section 5: Governance & Audit Checks -->
+      <div class="action-category">
+        <div class="category-title">
+          <span>4. Human Governance & Cryptographic Audit</span>
+          <span style="font-size: 0.72rem; color: #9CA3AF; font-family: var(--font-mono);">GET /actions/approvals &amp; audit</span>
+        </div>
+        <div class="category-subtitle">Inspect pending escalation queue and verify SHA-256 hash-chain integrity</div>
+        
+        <div class="buttons-grid">
+          <!-- Approvals Queue -->
+          <div class="test-card" onclick="fetchApprovals()">
+            <div>
+              <div class="card-top">
+                <span class="card-badge" style="background: rgba(0, 118, 168, 0.2); color: #38bdf8; border: 1px solid #0076a8;">QUEUE</span>
+                <span style="font-size: 0.7rem; color: #9CA3AF;">TC-10</span>
+              </div>
+              <div class="card-title">Fetch Escalation Queue</div>
+              <div class="card-desc">View all actions waiting for human officer review</div>
+            </div>
+            <div class="card-footer">
+              <span>GET /approvals</span>
+              <button class="btn-run">▶ Fetch</button>
+            </div>
+          </div>
 
-<!-- RULE DETAIL MODAL -->
-<div class="modal-overlay" id="ruleModal">
-  <div class="modal">
-    <div class="modal-header">
-      <span id="modalTitle">Rule Detail</span>
-      <button class="modal-close" onclick="closeModal('ruleModal')">✕</button>
+          <!-- Audit Integrity -->
+          <div class="test-card" onclick="verifyAudit()">
+            <div>
+              <div class="card-top">
+                <span class="card-badge badge-allow">VERIFY</span>
+                <span style="font-size: 0.7rem; color: #9CA3AF;">TC-14</span>
+              </div>
+              <div class="card-title">Cryptographic Audit Verify</div>
+              <div class="card-desc">Validate SHA-256 tamper-free hash chain</div>
+            </div>
+            <div class="card-footer">
+              <span>GET /audit/verify</span>
+              <button class="btn-run">▶ Verify</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Payload Dispatcher -->
+      <div class="custom-runner">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.88rem; font-weight: 700; color: #fff;">Custom Action Dispatcher (POST /actions/execute)</span>
+          <button class="btn-run" onclick="runCustomPayload()">▶ Execute Custom Action</button>
+        </div>
+        <textarea id="customPayload">{
+  "action_id": "00000000-0000-0000-0000-000000000001",
+  "agent_id": "test_agent",
+  "user_id": "user_demo",
+  "tool": "loan_service",
+  "operation": "disburse_loan",
+  "resource": "loan_app_custom",
+  "arguments": {
+    "account_number": "AC-12345",
+    "amount": 100000,
+    "customer_pre_approved": true
+  }
+}</textarea>
+      </div>
+
     </div>
-    <div class="modal-body" id="modalBody"></div>
-    <div class="modal-footer" id="modalFooter"></div>
-  </div>
-</div>
 
-<script src="/static/app.js"></script>
+    <!-- Right Column: Response Inspector & Execution Metrics -->
+    <div class="console-panel">
+      <div class="console-header">
+        <div class="console-title">
+          <span>Terminal Output &amp; Gateway Response</span>
+        </div>
+        <div class="console-metrics">
+          <span class="metric-tag" id="metricStatus">STATUS: IDLE</span>
+          <span class="metric-tag" id="metricLatency">0 ms</span>
+        </div>
+      </div>
+
+      <div class="console-body">
+        <div id="resultBanner" class="result-banner banner-info">
+          Ready. Click any action card on the left to dispatch an API call.
+        </div>
+
+        <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">REQUEST DISPATCHED:</div>
+        <div class="request-preview" id="requestPreview">No request sent yet.</div>
+
+        <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">GATEWAY RESPONSE:</div>
+        <pre class="json-viewer" id="jsonResponse">// Response will appear here in real-time...</pre>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    function getHeaders() {
+      const key = document.getElementById("gatewayKey").value.trim() || "gateway_internal_secret";
+      return {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + key
+      };
+    }
+
+    function generateUUID() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
+    async function sendAction(payload) {
+      const banner = document.getElementById("resultBanner");
+      const preview = document.getElementById("requestPreview");
+      const jsonViewer = document.getElementById("jsonResponse");
+      const metricStatus = document.getElementById("metricStatus");
+      const metricLatency = document.getElementById("metricLatency");
+
+      preview.textContent = JSON.stringify(payload, null, 2);
+      jsonViewer.textContent = "Executing policy evaluation...";
+      banner.className = "result-banner banner-info";
+      banner.textContent = "Dispatching action to Axiom Gateway...";
+
+      const startTime = performance.now();
+      try {
+        const res = await fetch("/actions/execute", {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify(payload)
+        });
+        const elapsed = Math.round(performance.now() - startTime);
+        const data = await res.json();
+
+        metricStatus.textContent = "STATUS: " + res.status;
+        metricLatency.textContent = elapsed + " ms";
+        jsonViewer.textContent = JSON.stringify(data, null, 2);
+
+        const decision = data.decision || (res.status === 200 ? "SUCCESS" : "ERROR");
+        if (decision === "ALLOW") {
+          banner.className = "result-banner banner-allow";
+          banner.textContent = "✓ DECISION: ALLOW — Action Executed Directly (" + elapsed + "ms)";
+        } else if (decision === "ESCALATE") {
+          banner.className = "result-banner banner-escalate";
+          banner.textContent = "⚠ DECISION: ESCALATE — Held in Queue (Approval ID: " + (data.approval_id || "Generated") + ")";
+        } else if (decision === "BLOCK") {
+          banner.className = "result-banner banner-block";
+          banner.textContent = "✕ DECISION: BLOCK — Action Prohibited by Policy";
+        } else {
+          banner.className = "result-banner banner-info";
+          banner.textContent = "Response Received: HTTP " + res.status;
+        }
+      } catch (err) {
+        const elapsed = Math.round(performance.now() - startTime);
+        metricStatus.textContent = "STATUS: ERROR";
+        metricLatency.textContent = elapsed + " ms";
+        banner.className = "result-banner banner-block";
+        banner.textContent = "✕ Network Error: " + err.message;
+        jsonViewer.textContent = err.stack || err.toString();
+      }
+    }
+
+    // Section 1: Loan Triggers
+    function runTC01() {
+      sendAction({
+        action_id: generateUUID(),
+        agent_id: "loan_bot_v1",
+        user_id: "cust_pre_101",
+        tool: "loan_service",
+        operation: "disburse_loan",
+        resource: "loan_app_101",
+        arguments: {
+          account_number: "AC-88219",
+          amount: 150000,
+          currency: "INR",
+          customer_pre_approved: true
+        }
+      });
+    }
+
+    function runTC02() {
+      sendAction({
+        action_id: generateUUID(),
+        agent_id: "loan_bot_v1",
+        user_id: "cust_unauth_102",
+        tool: "loan_service",
+        operation: "disburse_loan",
+        resource: "loan_app_102",
+        arguments: {
+          account_number: "AC-88220",
+          amount: 150000,
+          currency: "INR",
+          customer_pre_approved: false
+        }
+      });
+    }
+
+    function runTC03() {
+      sendAction({
+        action_id: generateUUID(),
+        agent_id: "loan_bot_v1",
+        user_id: "cust_sme_201",
+        tool: "loan_service",
+        operation: "disburse_loan",
+        resource: "loan_app_201",
+        arguments: {
+          account_number: "AC-99120",
+          amount: 500000,
+          currency: "INR",
+          customer_pre_approved: true
+        }
+      });
+    }
+
+    function runTC04() {
+      sendAction({
+        action_id: generateUUID(),
+        agent_id: "corporate_agent_07",
+        user_id: "corp_usr_301",
+        tool: "loan_service",
+        operation: "disburse_loan",
+        resource: "loan_app_301",
+        arguments: {
+          account_number: "AC-11002",
+          amount: 2500000,
+          currency: "INR",
+          customer_pre_approved: true
+        }
+      });
+    }
+
+    // Section 2: Freeze Triggers
+    function runTC05() {
+      sendAction({
+        action_id: generateUUID(),
+        agent_id: "aml_sentinel_ai",
+        user_id: "system_aml",
+        tool: "banking",
+        operation: "freeze_account",
+        resource: "account_AC-44910",
+        arguments: {
+          account_number: "AC-44910",
+          fraud_score: 0.96,
+          trigger: "velocity_anomaly"
+        }
+      });
+    }
+
+    function runTC06() {
+      sendAction({
+        action_id: generateUUID(),
+        agent_id: "support_agent_12",
+        user_id: "cust_rep_88",
+        tool: "banking",
+        operation: "freeze_account",
+        resource: "account_AC-55100",
+        arguments: {
+          account_number: "AC-55100",
+          fraud_score: 0.72,
+          reason: "Customer reported lost phone"
+        }
+      });
+    }
+
+    // Section 3: Closure & Export
+    function runTC07() {
+      sendAction({
+        action_id: generateUUID(),
+        agent_id: "tier1_bot",
+        user_id: "bot_runner",
+        tool: "banking",
+        operation: "close_account",
+        resource: "account_AC-66001",
+        arguments: {
+          account_number: "AC-66001",
+          initiated_by_role: "tier1_support",
+          reason: "Customer dissatisfaction"
+        }
+      });
+    }
+
+    function runTC08() {
+      sendAction({
+        action_id: generateUUID(),
+        agent_id: "manager_portal_agent",
+        user_id: "bm_mumbai_01",
+        tool: "banking",
+        operation: "close_account",
+        resource: "account_AC-77002",
+        arguments: {
+          account_number: "AC-77002",
+          initiated_by_role: "branch_manager",
+          reason: "KYC non-compliance dormancy"
+        }
+      });
+    }
+
+    function runTC09() {
+      sendAction({
+        action_id: generateUUID(),
+        agent_id: "analytics_bot_04",
+        user_id: "data_analyst_raj",
+        tool: "banking",
+        operation: "export_customer_data",
+        resource: "branch_101_transactions",
+        arguments: {
+          branch_code: "101",
+          export_format: "CSV",
+          date_range: "2026-Q2",
+          records_count: 4500
+        }
+      });
+    }
+
+    // Section 4: Approvals & Audit
+    async function fetchApprovals() {
+      const banner = document.getElementById("resultBanner");
+      const preview = document.getElementById("requestPreview");
+      const jsonViewer = document.getElementById("jsonResponse");
+      const metricStatus = document.getElementById("metricStatus");
+      const metricLatency = document.getElementById("metricLatency");
+
+      preview.textContent = "GET /actions/approvals";
+      jsonViewer.textContent = "Fetching approvals...";
+      const startTime = performance.now();
+
+      try {
+        const res = await fetch("/actions/approvals", {
+          method: "GET",
+          headers: getHeaders()
+        });
+        const elapsed = Math.round(performance.now() - startTime);
+        const data = await res.json();
+
+        metricStatus.textContent = "STATUS: " + res.status;
+        metricLatency.textContent = elapsed + " ms";
+        jsonViewer.textContent = JSON.stringify(data, null, 2);
+
+        banner.className = "result-banner banner-info";
+        banner.textContent = "Fetched " + ((data.approvals && data.approvals.length) || 0) + " Pending Escalations";
+      } catch (err) {
+        banner.className = "result-banner banner-block";
+        banner.textContent = "Error: " + err.message;
+      }
+    }
+
+    async function verifyAudit() {
+      const banner = document.getElementById("resultBanner");
+      const preview = document.getElementById("requestPreview");
+      const jsonViewer = document.getElementById("jsonResponse");
+      const metricStatus = document.getElementById("metricStatus");
+      const metricLatency = document.getElementById("metricLatency");
+
+      preview.textContent = "GET /actions/audit/verify";
+      jsonViewer.textContent = "Verifying cryptographic hash chain...";
+      const startTime = performance.now();
+
+      try {
+        const res = await fetch("/actions/audit/verify", {
+          method: "GET",
+          headers: getHeaders()
+        });
+        const elapsed = Math.round(performance.now() - startTime);
+        const data = await res.json();
+
+        metricStatus.textContent = "STATUS: " + res.status;
+        metricLatency.textContent = elapsed + " ms";
+        jsonViewer.textContent = JSON.stringify(data, null, 2);
+
+        if (data.is_valid || data.status === "TAMPER_FREE") {
+          banner.className = "result-banner banner-allow";
+          banner.textContent = "✓ AUDIT INTEGRITY: TAMPER_FREE — SHA-256 Hash Chain Valid";
+        } else {
+          banner.className = "result-banner banner-block";
+          banner.textContent = "✕ AUDIT WARNING: Issues Detected";
+        }
+      } catch (err) {
+        banner.className = "result-banner banner-block";
+        banner.textContent = "Error: " + err.message;
+      }
+    }
+
+    function runCustomPayload() {
+      try {
+        const text = document.getElementById("customPayload").value;
+        const json = JSON.parse(text);
+        sendAction(json);
+      } catch (e) {
+        alert("Invalid JSON format in custom payload: " + e.message);
+      }
+    }
+  </script>
 </body>
 </html>

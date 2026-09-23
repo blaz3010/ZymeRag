@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-const API = 'http://localhost:8000';
+import { API } from '../config';
 function getToken() { return localStorage.getItem('zymerag_token') || ''; }
 const headers = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` });
 
