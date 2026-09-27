@@ -82,10 +82,12 @@ export default function IngestedSources({ onNavigateToAdd }) {
     setIsDeleting(true);
 
     try {
+      const token = localStorage.getItem('zymerag_access_token');
       const formData = new FormData();
       formData.append('id', deleteTarget.id);
       await fetch('http://localhost:8000/delete/delete_content', {
         method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData
       });
       setSources(prev => prev.filter(s => s.id !== deleteTarget.id));

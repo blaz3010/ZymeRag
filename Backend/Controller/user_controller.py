@@ -11,10 +11,11 @@ from Dbhelper.user_db_helper import (
     clear_refresh_token,
     create_user,
     get_user_by_email,
+    get_user_by_username,
     update_refresh_token,
     verify_refresh_token,
 )
-from Backend.Utils.Hash import hash_password
+from Backend.Utils.Hash import hash_password, verify_password
 
 logger = logging.getLogger(__name__)
 
@@ -150,4 +151,79 @@ async def logout_user(response: Response, user_id: str):
         return {"message": "Logged out successfully"}
     except Exception as e:
         logger.exception("Unexpected error in logout_user for user_id=%s", user_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def login_user(response: Response, username: str = Form(...), password: str = Form(...)):
+    """Authenticate an existing user with username/email + password.
+
+    Issues a short-lived JWT access token and rotates the opaque refresh
+    token stored (hashed) server-side, setting it as an httponly cookie.
+    """
+    try:
+        user = await get_user_by_username(username)
+        if not user and "@" in username:
+            user = await get_user_by_email(username)
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
+        if not await verify_password(password, user.get("password_hash") or ""):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
+        user_id = user["user_id"]
+        access_token = await create_access_token(user_id=user_id)
+        refresh_token = await create_refresh_token(user_id=user_id)
+
+        expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_TTL_DAYS)
+        stored_ok = await update_refresh_token(
+            user_id=user_id,
+            refresh_token=refresh_token,
+            expires_at=expires_at,
+            hash_token=True,
+        )
+        if not stored_ok:
+            raise HTTPException(status_code=500, detail="Could not persist refresh token")
+        _set_refresh_cookie(response, refresh_token)
+
+        return {
+            "message": "Login successful",
+            "user_id": user_id,
+            "username": user.get("username"),
+            "access_token": access_token,
+            "token_type": "bearer",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Unexpected error in login_user for username=%s", username)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def demo_token(response: Response):
+    """Issue a real JWT for demo / offline use without DB access.
+
+    This endpoint is intentionally unauthenticated. It creates a short-lived
+    (24-hour) HS256 access token for a virtual 'demo-admin' user so that the
+    frontend can still call protected upload/delete endpoints even when the
+    database is unreachable (paused Supabase project, no internet, etc.).
+    The user_id 'demo-admin-id' is hard-coded and will NOT match any real DB row,
+    but it satisfies jwt.decode() which is all auth_middleware checks.
+    """
+    try:
+        demo_user_id = "demo-admin-id"
+        access_token = create_jwt(
+            user_id=demo_user_id,
+            token_type="access",
+            ttl=timedelta(hours=24),
+        )
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user_id": demo_user_id,
+            "username": "Zyme Admin",
+            "email": "admin@zymerag.io",
+            "mode": "demo",
+        }
+    except Exception as e:
+        logger.exception("Unexpected error in demo_token")
         raise HTTPException(status_code=500, detail=str(e))

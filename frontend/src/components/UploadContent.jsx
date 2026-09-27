@@ -37,8 +37,10 @@ export default function UploadContent({ onUploadSuccess }) {
     formData.append('name', file.name.substring(0, file.name.lastIndexOf('.')) || file.name);
 
     try {
+      const token = localStorage.getItem('zymerag_access_token');
       const res = await fetch(`http://localhost:8000${endpoint}`, {
         method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
 
