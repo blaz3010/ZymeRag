@@ -3,7 +3,7 @@ from pathlib import Path
 import pickle
 import re
 import asyncio
-
+from functools import lru_cache
 
 BASE_DIR = Path("Data").resolve()
 
@@ -15,15 +15,18 @@ class BM25:
 
     def tokenize(self, text: str):
         return re.findall(r"\b\w+\b", text.lower())
-
+    @staticmethod
+    @lru_cache(maxsize=128)
+    def load_bm25(path:str):
+        with open(path, "rb") as f:
+            return pickle.load(f)
     def loadandquery(
         self,
         query: str,
         path: Path,
         k: int = 6
     ):
-        with open(path, "rb") as f:
-            data = pickle.load(f)
+        data=self.load_bm25(str(path))
         documents = data["documents"]
         bm25 = data["bm25"]
         query_tokens = self.tokenize(query)
