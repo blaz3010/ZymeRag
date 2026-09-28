@@ -69,8 +69,7 @@ class BM25:
         for chunks in all_result:
             result.extend(chunks)
         result.sort(
-            key=lambda x: x[1],
-            reverse=True
+            key=lambda x: x[1]
         )
         return result[:self.top_k]
 
@@ -106,7 +105,6 @@ class BM25:
         for chunks in all_result:
             result.extend(chunks)
         result.sort(
-            key=lambda x: x[1],
-            reverse=True
+            key=lambda x: x[1]
         )
         return result[:self.top_k]
