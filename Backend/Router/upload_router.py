@@ -9,3 +9,5 @@ upload_router.add_api_route("/upload_image", upload_image, methods=["POST"], dep
 upload_router.add_api_route("/upload_csv", upload_csv, methods=["POST"], dependencies=[Depends(auth_middleware)])
 upload_router.add_api_route("/upload_audio", upload_audio, methods=["POST"], dependencies=[Depends(auth_middleware)])
 upload_router.add_api_route("/upload_video", upload_video, methods=["POST"], dependencies=[Depends(auth_middleware)])
+upload_router.add_api_route("/upload_website", upload_website, methods=["POST"], dependencies=[Depends(auth_middleware)])
+upload_router.add_api_route("/upload_raw_text", upload_raw_text, methods=["POST"], dependencies=[Depends(auth_middleware)])

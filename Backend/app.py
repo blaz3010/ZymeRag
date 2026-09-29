@@ -1,4 +1,8 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -8,6 +12,7 @@ from Backend.Router.upload_router import upload_router
 from Backend.Router.delete_router import delete_router
 from Backend.Router.user_router import user_router
 from Backend.Router.query_router import query_router
+
 app = FastAPI(title="ZymeRag Backend API", description="API for ZymeRag Backend", version="1.0.0")
 
 app.add_middleware(

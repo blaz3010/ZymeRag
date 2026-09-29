@@ -69,3 +69,36 @@ async def ingestText(text: str, name: str):
     except Exception as e:
         print(f"Error Occured While Ingesting The Text {name} and Error is {e}")
         return None
+
+
+RAW_TEXT_MAX_WORDS = 200
+
+
+def count_words(text: str) -> int:
+    return len([w for w in text.split() if w])
+
+
+async def ingest_raw_text(text: str, name: str):
+    """Ingest a short raw text snippet as a single chunk (no splitting)."""
+    try:
+        text = text.strip()
+        if not text:
+            print("Empty raw text provided, nothing to ingest")
+            return None
+        if count_words(text) > RAW_TEXT_MAX_WORDS:
+            print(f"Raw text exceeds {RAW_TEXT_MAX_WORDS} words, rejected")
+            return None
+        id = str(uuid.uuid4())
+        content_path = content_dir / f"{id}"
+        await asyncio.to_thread(content_path.mkdir, parents=True, exist_ok=True)
+        chunks = [Document(page_content=text)]
+        await asyncio.to_thread(_build_and_save_index_sync, chunks, content_path)
+        database_saved = await save_content_to_database(name=name, content_id=id, doc_type="txt", chunks=len(chunks))
+        if database_saved:
+            print(f"Raw text ingested and saved to database with ID: {id}")
+            return id
+        return None
+    except Exception as e:
+        print(f"Error Occured While Ingesting The Raw Text {name} and Error is {e}")
+        return None
+
