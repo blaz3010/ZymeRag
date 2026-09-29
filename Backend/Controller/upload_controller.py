@@ -6,8 +6,10 @@ from io import BytesIO
 from typing import List, Optional
 
 from Backend.Middleware.auth import auth_middleware
-from Dbhelper.user_mapping_db_helper import link_user_to_content
+from Dbhelper.user_mapping_db_helper import link_user_to_content, link_user_to_feed
 from DocsIngestion.AudioVideoIngestion import ingestaudio, ingestvideo
+from WebsiteIngestion.websiteingestion import ingest_website
+from DocsIngestion.TextIngestion import ingest_raw_text, count_words, RAW_TEXT_MAX_WORDS
 lock = asyncio.Lock()
 URL_PATTERN = r"(https?://[^\s]+)"
 MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -158,4 +160,53 @@ async def upload_video(file: UploadFile = File(...), name: str = Form(...), idem
         await link_user_to_content(user_id, upload_id_video)
         return {"message": "video uploaded successfully", "id": upload_id_video}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def upload_website(url: str = Form(...), idempotent_key: Optional[str] = Form(None), user_id: str = Depends(auth_middleware)):
+    try:
+        async with lock:
+            if idempotent_key:
+                if idempotent_key in idempotent_keys:
+                    return {"message": "Duplicate request", "id": idempotent_keys[idempotent_key]}
+        if not re.match(URL_PATTERN, url or ""):
+            raise HTTPException(status_code=400, detail="Invalid URL. A valid http/https URL is required.")
+        idempotent_keys[idempotent_key]=1
+        print("Ingesting website...")
+        upload_id_website=await ingest_website(url)
+        if upload_id_website is None:
+            idempotent_keys.pop(idempotent_key, None)
+            raise HTTPException(status_code=400, detail="Failed to upload website")
+        await link_user_to_feed(user_id, upload_id_website)
+        return {"message": "website uploaded successfully", "id": upload_id_website}
+    except HTTPException:
+        raise
+    except Exception as e:
+        idempotent_keys.pop(idempotent_key, None)
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def upload_raw_text(text: str = Form(...), name: str = Form(...), idempotent_key: Optional[str] = Form(None), user_id: str = Depends(auth_middleware)):
+    try:
+        print("Received request to upload raw text")
+        async with lock:
+            if idempotent_key:
+                if idempotent_key in idempotent_keys:
+                    return {"message": "Duplicate request", "id": idempotent_keys[idempotent_key]}
+        text = (text or "").strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="Raw text cannot be empty")
+        word_count = count_words(text)
+        if word_count > RAW_TEXT_MAX_WORDS:
+            raise HTTPException(status_code=400, detail=f"Raw text must be {RAW_TEXT_MAX_WORDS} words or fewer (received {word_count})")
+        idempotent_keys[idempotent_key]=1
+        print("Ingesting raw text...")
+        upload_id_raw=await ingest_raw_text(text, name)
+        if upload_id_raw is None:
+            idempotent_keys.pop(idempotent_key, None)
+            raise HTTPException(status_code=400, detail="Failed to upload raw text")
+        await link_user_to_content(user_id, upload_id_raw)
+        return {"message": "raw text uploaded successfully", "id": upload_id_raw}
+    except HTTPException:
+        raise
+    except Exception as e:
+        idempotent_keys.pop(idempotent_key, None)
         raise HTTPException(status_code=500, detail=str(e))

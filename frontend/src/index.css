@@ -25,9 +25,11 @@
   --purple-light: #faf5ff;
   
   --blue-primary: #2563eb;
+  --blue-hover: #1d4ed8;
   --blue-light: #eff6ff;
   
   --emerald-primary: #059669;
+  --emerald-hover: #047857;
   --emerald-light: #ecfdf5;
   
   --red-primary: #dc2626;
@@ -502,6 +504,38 @@ body {
 .btn-submit-web:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.btn-submit-web .btn-spinner-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-emerald {
+  background: var(--emerald-primary);
+}
+
+.btn-emerald:hover:not(:disabled) {
+  background: var(--emerald-hover);
+}
+
+.btn-blue {
+  background: var(--blue-primary);
+}
+
+.btn-blue:hover:not(:disabled) {
+  background: var(--blue-hover);
+}
+
+.url-input {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+}
+
+.text-count-hint.limit-exceeded {
+  color: #dc2626;
+  font-weight: 700;
 }
 
 /* Search Bar */

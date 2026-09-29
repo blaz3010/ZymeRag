@@ -13,15 +13,22 @@ import {
 } from 'lucide-react';
 
 export default function UploadContent({ onUploadSuccess }) {
-  const [webText, setWebText] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [rawText, setRawText] = useState('');
+  const [rawTextName, setRawTextName] = useState('');
   const [loading, setLoading] = useState({});
   const [toast, setToast] = useState(null);
   const [dragOverCard, setDragOverCard] = useState(null);
+
+  const RAW_TEXT_MAX_WORDS = 200;
 
   const showNotification = (msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3800);
   };
+
+  const wordCount = rawText.trim() ? rawText.trim().split(/\s+/).length : 0;
+  const rawTextTooLong = wordCount > RAW_TEXT_MAX_WORDS;
 
   // Helper for Uploading Files to Backend
   const handleFileUpload = async (file, endpoint, defaultType) => {
@@ -55,6 +62,64 @@ export default function UploadContent({ onUploadSuccess }) {
       showNotification(`Upload error: ${err.message}`, 'error');
     } finally {
       setLoading(prev => ({ ...prev, [defaultType]: false }));
+    }
+  };
+
+  // Helper for Uploading non-file (form field) content to Backend
+  const handleFormUpload = async (fields, endpoint, key, successMessage) => {
+    setLoading(prev => ({ ...prev, [key]: true }));
+    const formData = new FormData();
+    Object.entries(fields).forEach(([field, value]) => formData.append(field, value));
+
+    try {
+      const token = localStorage.getItem('zymerag_access_token');
+      const res = await fetch(`http://localhost:8000${endpoint}`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        showNotification(successMessage, 'success');
+        if (onUploadSuccess) onUploadSuccess();
+        return true;
+      }
+      showNotification(data.detail || 'Upload failed', 'error');
+      return false;
+    } catch (err) {
+      showNotification(`Upload error: ${err.message}`, 'error');
+      return false;
+    } finally {
+      setLoading(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const handleWebsiteSubmit = async () => {
+    const url = websiteUrl.trim();
+    if (!url) return;
+    const ok = await handleFormUpload(
+      { url, idempotent_key: url },
+      '/upload/upload_website',
+      'web',
+      `Successfully crawled and ingested "${url}"!`
+    );
+    if (ok) setWebsiteUrl('');
+  };
+
+  const handleRawTextSubmit = async () => {
+    const text = rawText.trim();
+    if (!text || rawTextTooLong) return;
+    const name = rawTextName.trim() || text.slice(0, 40);
+    const ok = await handleFormUpload(
+      { text, name, idempotent_key: `${name}-${text.length}` },
+      '/upload/upload_raw_text',
+      'raw',
+      `Successfully ingested raw text snippet "${name}"!`
+    );
+    if (ok) {
+      setRawText('');
+      setRawTextName('');
     }
   };
 
@@ -287,39 +352,94 @@ export default function UploadContent({ onUploadSuccess }) {
           </label>
         </div>
 
-        {/* Card 5: Web Content & Raw Text */}
+        {/* Card 5: Website URLs (Feeds) */}
         <div className="ingestion-card span-2-cols">
           <div className="card-top-header">
             <div className="icon-wrapper icon-emerald">
               <Globe size={22} />
             </div>
             <div>
-              <h3 className="card-heading">Web Content & Raw Text Snippets</h3>
-              <p className="card-subtext">Paste website URLs or raw text blocks to index into vector store</p>
+              <h3 className="card-heading">Website Ingestion</h3>
+              <p className="card-subtext">Crawl a public URL, split it into chunks and index it as a feed</p>
             </div>
           </div>
 
           <div className="web-ingest-box">
-            <textarea 
-              className="custom-textarea"
-              rows={4}
-              placeholder="Paste website URLs or text snippets here..."
-              value={webText}
-              onChange={(e) => setWebText(e.target.value)}
+            <input
+              type="url"
+              className="custom-textarea url-input"
+              placeholder="https://example.com/article"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+              disabled={loading.web}
             />
             <div className="web-ingest-footer">
-              <span className="text-count-hint">{webText.length} characters</span>
-              <button 
-                className="btn-submit-web"
-                disabled={!webText.trim()}
-                onClick={() => {
-                  if (webText.trim()) {
-                    showNotification('Web text added to vector processing queue!', 'success');
-                    setWebText('');
-                  }
-                }}
+              <span className="text-count-hint">One URL at a time</span>
+              <button
+                className="btn-submit-web btn-emerald"
+                disabled={!websiteUrl.trim() || loading.web}
+                onClick={handleWebsiteSubmit}
               >
-                + Ingest Web Text
+                {loading.web ? (
+                  <span className="btn-spinner-content">
+                    <Loader2 className="animate-spin" size={14} />
+                    <span>Crawling...</span>
+                  </span>
+                ) : (
+                  '+ Ingest Website'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 6: Raw Text Snippets */}
+        <div className="ingestion-card span-2-cols">
+          <div className="card-top-header">
+            <div className="icon-wrapper icon-blue">
+              <FileText size={22} />
+            </div>
+            <div>
+              <h3 className="card-heading">Raw Text Snippet</h3>
+              <p className="card-subtext">Paste a short note, summary or paragraph to index as a single chunk</p>
+            </div>
+          </div>
+
+          <div className="web-ingest-box">
+            <input
+              type="text"
+              className="custom-textarea url-input"
+              placeholder="Optional name for this snippet"
+              value={rawTextName}
+              onChange={(e) => setRawTextName(e.target.value)}
+              disabled={loading.raw}
+            />
+            <textarea
+              className="custom-textarea"
+              rows={5}
+              placeholder="Paste your raw text here (max 200 words)..."
+              value={rawText}
+              onChange={(e) => setRawText(e.target.value)}
+              disabled={loading.raw}
+            />
+            <div className="web-ingest-footer">
+              <span className={`text-count-hint ${rawTextTooLong ? 'limit-exceeded' : ''}`}>
+                {wordCount} / {RAW_TEXT_MAX_WORDS} words
+                {rawTextTooLong ? ' — limit exceeded' : ''}
+              </span>
+              <button
+                className="btn-submit-web btn-blue"
+                disabled={!rawText.trim() || rawTextTooLong || loading.raw}
+                onClick={handleRawTextSubmit}
+              >
+                {loading.raw ? (
+                  <span className="btn-spinner-content">
+                    <Loader2 className="animate-spin" size={14} />
+                    <span>Indexing...</span>
+                  </span>
+                ) : (
+                  '+ Ingest Raw Text'
+                )}
               </button>
             </div>
           </div>

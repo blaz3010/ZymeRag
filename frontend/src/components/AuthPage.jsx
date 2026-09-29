@@ -8,14 +8,13 @@ import {
   EyeOff, 
   ArrowRight, 
   ShieldCheck, 
-  Sparkles, 
   Check, 
   AlertCircle,
   Layers,
   Database,
   Search
 } from 'lucide-react';
-import { loginWithCredentials, signupWithCredentials, loginAsDemo } from '../utils/auth';
+import { loginWithCredentials, signupWithCredentials } from '../utils/auth';
 
 export default function AuthPage({ onLoginSuccess }) {
   const [mode, setMode] = useState('login'); // 'login' or 'signup'
@@ -28,21 +27,6 @@ export default function AuthPage({ onLoginSuccess }) {
   const [error, setError] = useState('');
 
   const isSignup = mode === 'signup';
-
-  const handleDemoLogin = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await loginAsDemo();
-      if (res.success && onLoginSuccess) {
-        onLoginSuccess(res.user);
-      }
-    } catch (err) {
-      setError('Demo login failed: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -155,22 +139,6 @@ export default function AuthPage({ onLoginSuccess }) {
 
         {/* Right Side: Auth Form */}
         <div className="auth-form-side">
-          {/* Quick Demo Access Header */}
-          <div className="auth-demo-banner">
-            <div className="demo-info">
-              <Sparkles size={16} className="text-amber" />
-              <span>Want to explore the dashboard immediately?</span>
-            </div>
-            <button 
-              type="button" 
-              className="btn-demo-quick" 
-              onClick={handleDemoLogin}
-              disabled={loading}
-            >
-              ⚡ Instant Demo Login
-            </button>
-          </div>
-
           <div className="auth-tabs-row">
             <button 
               type="button"
@@ -244,12 +212,7 @@ export default function AuthPage({ onLoginSuccess }) {
             )}
 
             <div className="input-group">
-              <div className="label-row">
-                <label htmlFor="auth-password">Password</label>
-                {!isSignup && (
-                  <span className="demo-hint-text">demo: any password</span>
-                )}
-              </div>
+              <label htmlFor="auth-password">Password</label>
               <div className="input-field-wrapper">
                 <Lock size={16} className="field-icon" />
                 <input 

@@ -3,16 +3,19 @@ import uuid
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import jwt
-from fastapi import Form, HTTPException, Response
+from fastapi import Body, Cookie, Depends, HTTPException, Response
 
+from Backend.Middleware.auth import auth_middleware
 from Dbhelper.user_db_helper import (
     clear_refresh_token,
     create_user,
     get_user_by_email,
     get_user_by_username,
     update_refresh_token,
+    username_exists,
     verify_refresh_token,
 )
 from Backend.Utils.Hash import hash_password, verify_password
@@ -74,18 +77,27 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
 
 async def create_user_new(
     response: Response,
-    username: str = Form(...),
-    email: str = Form(...),
-    password: str = Form(...),
+    username: str = Body(...),
+    email: Optional[str] = Body(None),
+    password: str = Body(...),
 ):
     try:
-        existing_user = await get_user_by_email(email)
-        if existing_user:
-            raise HTTPException(status_code=400, detail="User with this email already exists")
+        if email:
+            existing_user = await get_user_by_email(email)
+            if existing_user:
+                raise HTTPException(status_code=400, detail="User with this email already exists")
+
+        existing_username = await username_exists(username)
+        if existing_username:
+            raise HTTPException(status_code=400, detail="Username already taken")
 
         user_id = str(uuid.uuid4())
         hashed_password = await hash_password(password)
-        await create_user(user_id=user_id, username=username, email=email, password=hashed_password)
+        created = await create_user(
+            user_id=user_id, username=username, email=email, password_hash=hashed_password
+        )
+        if not created:
+            raise HTTPException(status_code=400, detail="Could not create user (username or email conflict)")
 
         access_token = await create_access_token(user_id=user_id)
         refresh_token = await create_refresh_token(user_id=user_id)
@@ -103,6 +115,7 @@ async def create_user_new(
 
         return {
             "message": "User created successfully",
+            "user_id": user_id,
             "username": username,
             "email": email,
             "access_token": access_token,
@@ -115,8 +128,14 @@ async def create_user_new(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def refresh_access_token(response: Response, user_id: str, refresh_token: str):
+async def refresh_access_token(
+    response: Response,
+    user_id: str = Depends(auth_middleware),
+    refresh_token: str = Cookie(None),
+):
     try:
+        if not refresh_token:
+            raise HTTPException(status_code=401, detail="No refresh token provided")
         is_valid = await verify_refresh_token(user_id=user_id, raw_token=refresh_token)
         if not is_valid:
             raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
@@ -144,7 +163,7 @@ async def refresh_access_token(response: Response, user_id: str, refresh_token: 
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def logout_user(response: Response, user_id: str):
+async def logout_user(response: Response, user_id: str = Depends(auth_middleware)):
     try:
         await clear_refresh_token(user_id=user_id)
         response.delete_cookie("refresh_token", path="/")
@@ -154,7 +173,7 @@ async def logout_user(response: Response, user_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def login_user(response: Response, username: str = Form(...), password: str = Form(...)):
+async def login_user(response: Response, username: str = Body(...), password: str = Body(...)):
     """Authenticate an existing user with username/email + password.
 
     Issues a short-lived JWT access token and rotates the opaque refresh
@@ -196,34 +215,4 @@ async def login_user(response: Response, username: str = Form(...), password: st
         raise
     except Exception as e:
         logger.exception("Unexpected error in login_user for username=%s", username)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-async def demo_token(response: Response):
-    """Issue a real JWT for demo / offline use without DB access.
-
-    This endpoint is intentionally unauthenticated. It creates a short-lived
-    (24-hour) HS256 access token for a virtual 'demo-admin' user so that the
-    frontend can still call protected upload/delete endpoints even when the
-    database is unreachable (paused Supabase project, no internet, etc.).
-    The user_id 'demo-admin-id' is hard-coded and will NOT match any real DB row,
-    but it satisfies jwt.decode() which is all auth_middleware checks.
-    """
-    try:
-        demo_user_id = "demo-admin-id"
-        access_token = create_jwt(
-            user_id=demo_user_id,
-            token_type="access",
-            ttl=timedelta(hours=24),
-        )
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user_id": demo_user_id,
-            "username": "Zyme Admin",
-            "email": "admin@zymerag.io",
-            "mode": "demo",
-        }
-    except Exception as e:
-        logger.exception("Unexpected error in demo_token")
         raise HTTPException(status_code=500, detail=str(e))
