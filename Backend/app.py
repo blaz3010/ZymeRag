@@ -1,6 +1,12 @@
 import os
 from dotenv import load_dotenv
+import sys
+import asyncio
 
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(
+        asyncio.WindowsProactorEventLoopPolicy()
+    )
 load_dotenv()
 
 from fastapi import FastAPI, UploadFile, File

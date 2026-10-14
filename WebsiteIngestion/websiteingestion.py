@@ -89,6 +89,8 @@ async def website_crawl2(url: str):
 
 
 async def ingest_website(url: str):
+    loop = asyncio.get_running_loop()
+    print("Active event loop:", type(loop).__name__)
     markdown = await website_crawl(url)
     if markdown is None:
         markdown = await website_crawl2(url)

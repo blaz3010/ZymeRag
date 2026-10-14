@@ -173,35 +173,68 @@ async def logout_user(response: Response, user_id: str = Depends(auth_middleware
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def login_user(response: Response, username: str = Body(...), password: str = Body(...)):
-    """Authenticate an existing user with username/email + password.
 
-    Issues a short-lived JWT access token and rotates the opaque refresh
-    token stored (hashed) server-side, setting it as an httponly cookie.
-    """
+async def login_user(
+    response: Response,
+    username: str = Body(...),
+    password: str = Body(...)
+):
     try:
+        logger.info("Login attempt received")
+
         user = await get_user_by_username(username)
+        logger.info("Username lookup completed: found=%s", bool(user))
+
         if not user and "@" in username:
             user = await get_user_by_email(username)
+            logger.info("Email lookup completed: found=%s", bool(user))
+
         if not user:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+            logger.warning("Login failed: user not found")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid credentials"
+            )
 
-        if not await verify_password(password, user.get("password_hash") or ""):
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+        password_hash = user.get("password_hash")
+        if not password_hash:
+            logger.error("User record has no password_hash")
+            raise HTTPException(
+                status_code=500,
+                detail="Account authentication is not configured correctly"
+            )
 
-        user_id = user["user_id"]
-        access_token = await create_access_token(user_id=user_id)
-        refresh_token = await create_refresh_token(user_id=user_id)
+        password_valid = await verify_password(password, password_hash)
+        logger.info("Password verification completed: valid=%s", password_valid)
 
-        expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_TTL_DAYS)
+        if not password_valid:
+            logger.warning("Login failed: password mismatch")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid credentials"
+            )
+
+        user_id = str(user["user_id"])
+        access_token = await create_access_token(user_id)
+        refresh_token = await create_refresh_token(user_id)
+
+        expires_at = datetime.now(timezone.utc) + timedelta(
+            days=REFRESH_TOKEN_TTL_DAYS
+        )
+
         stored_ok = await update_refresh_token(
             user_id=user_id,
             refresh_token=refresh_token,
             expires_at=expires_at,
             hash_token=True,
         )
+
         if not stored_ok:
-            raise HTTPException(status_code=500, detail="Could not persist refresh token")
+            raise HTTPException(
+                status_code=500,
+                detail="Could not persist refresh token"
+            )
+
         _set_refresh_cookie(response, refresh_token)
 
         return {
@@ -211,8 +244,13 @@ async def login_user(response: Response, username: str = Body(...), password: st
             "access_token": access_token,
             "token_type": "bearer",
         }
+
     except HTTPException:
         raise
-    except Exception as e:
-        logger.exception("Unexpected error in login_user for username=%s", username)
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Unexpected error during login")
+        raise HTTPException(
+            status_code=500,
+            detail="An internal error occurred during login"
+        )
+
