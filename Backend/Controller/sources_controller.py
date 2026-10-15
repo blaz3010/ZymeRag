@@ -1,5 +1,6 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends, Form, HTTPException
 from Backend.Middleware.auth import auth_middleware
+from Utils.PickleReader import read_pickle_file
 from Dbhelper.user_mapping_db_helper import (
     get_user_sources_with_details,
     get_all_sources_with_details,
@@ -20,6 +21,16 @@ async def get_all_sources(user_id: str = Depends(auth_middleware)):
     try:
         sources = await get_all_sources_with_details(current_user_id=user_id)
         return {"sources": sources}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def show_all_chunks(uuid:str=Form(...), user_id: str = Depends(auth_middleware)):
+    try:
+        docstore, index_to_id = await read_pickle_file(uuid)
+        contents = [docstore._dict[index_to_id[i]].page_content for i in range(len(index_to_id))]
+        contents = [content for content in contents if content.strip()]  # Filter out empty chunks
+        contents = "\n\n".join(contents)  # Join chunks with double newlines for better readability
+        return {"chunks": contents}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
