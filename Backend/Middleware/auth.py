@@ -37,3 +37,21 @@ async def auth_middleware(request: Request):
 
     request.state.user_id = user_id
     return user_id
+
+
+def extract_user_id_from_expired_token(request: Request):
+    """Safely extract user_id from an expired or active access token for token refresh rotation."""
+    token = request.cookies.get("access_token")
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1]
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, ACCESS_TOKEN_SECRET, algorithms=["HS256"], options={"verify_exp": False})
+        if payload.get("type") != "access":
+            return None
+        return payload.get("user_id")
+    except Exception:
+        return None

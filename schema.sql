@@ -113,3 +113,23 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_user_mappings_user_content_uniq
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_mappings_user_feed_uniq
     ON user_mappings(user_id, feed_id)
     WHERE feed_id IS NOT NULL;
+
+-- Queries asked by users linked to content_ids and feed_ids
+CREATE TABLE IF NOT EXISTS user_queries (
+    id              BIGSERIAL    PRIMARY KEY,
+    query_id        VARCHAR(255) UNIQUE NOT NULL,
+    user_id         VARCHAR(255) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    question        TEXT         NOT NULL,
+    answer          TEXT         NOT NULL,
+    content_ids     JSONB        NOT NULL DEFAULT '[]'::jsonb,
+    feed_ids        JSONB        NOT NULL DEFAULT '[]'::jsonb,
+    selected_ids    JSONB        NOT NULL DEFAULT '[]'::jsonb,
+    chunks_found    INTEGER      NOT NULL DEFAULT 0 CHECK (chunks_found >= 0),
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_queries_user_id
+    ON user_queries(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_user_queries_created_at
+    ON user_queries(created_at DESC);

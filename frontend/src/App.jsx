@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import UploadContent from './components/UploadContent';
 import IngestedSources from './components/IngestedSources';
+import QueryPlayground from './components/QueryPlayground';
 import AuthPage from './components/AuthPage';
 import { getStoredUser, logoutCurrentSession } from './utils/auth';
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('upload');
+  const [activeTab, setActiveTab] = useState('playground');
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
@@ -42,7 +43,7 @@ export default function App() {
     return <AuthPage onLoginSuccess={(loggedInUser) => setUser(loggedInUser)} />;
   }
 
-  // Once authenticated, display the main dashboard (Ingest Data & Ingested Sources)
+  // Once authenticated, display the main dashboard
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       {/* Top Header Navbar with user profile & logout */}
@@ -54,11 +55,15 @@ export default function App() {
       />
 
       {/* Main Workspace Body */}
-      <main className="max-w-6xl mx-auto px-6 py-6">
-        {activeTab === 'upload' ? (
-          <UploadContent onUploadSuccess={() => setActiveTab('sources')} />
-        ) : (
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        {activeTab === 'upload' && (
+          <UploadContent onUploadSuccess={() => setActiveTab('playground')} />
+        )}
+        {activeTab === 'sources' && (
           <IngestedSources onNavigateToAdd={() => setActiveTab('upload')} />
+        )}
+        {activeTab === 'playground' && (
+          <QueryPlayground onNavigateToIngest={() => setActiveTab('upload')} />
         )}
       </main>
     </div>

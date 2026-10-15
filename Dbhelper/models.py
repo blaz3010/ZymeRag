@@ -93,6 +93,21 @@ class UserMappingModel(Base):
     created_at = Column("created_at", DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+class UserQueryModel(Base):
+    __tablename__ = "user_queries"
+
+    id           = Column("id",           BigInteger, primary_key=True, autoincrement=True)
+    query_id     = Column("query_id",     Text, unique=True, nullable=False)
+    user_id      = Column("user_id",      Text, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    question     = Column("question",     Text, nullable=False)
+    answer       = Column("answer",       Text, nullable=False)
+    content_ids  = Column("content_ids",  Text, nullable=False, server_default="[]")
+    feed_ids     = Column("feed_ids",     Text, nullable=False, server_default="[]")
+    selected_ids = Column("selected_ids", Text, nullable=False, server_default="[]")
+    chunks_found = Column("chunks_found", Integer, nullable=False, server_default="0")
+    created_at   = Column("created_at",   DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 
 @dataclass
 class User:
@@ -136,4 +151,18 @@ class UserMapping:
     user_id: str
     content_id: Optional[str] = None
     feed_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+@dataclass
+class UserQueryItem:
+    query_id: str
+    user_id: str
+    question: str
+    answer: str
+    content_ids: list
+    feed_ids: list
+    selected_ids: list
+    chunks_found: int = 0
+    id: Optional[int] = None
     created_at: Optional[datetime] = None

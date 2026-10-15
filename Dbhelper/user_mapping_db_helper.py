@@ -71,14 +71,16 @@ async def get_user_mappings(user_id: str) -> List[dict]:
 
 
 async def get_user_content_ids(user_id: str) -> List[str]:
-    """Fetch the content_ids a user is mapped to (excludes feed-only mapping rows)."""
+    """Fetch the content_ids a user is mapped to (including unmapped active content)."""
     try:
         async with AsyncDB() as s:
             rows = (
                 await s.execute(
                     text("""
-                        SELECT content_id FROM user_mappings
-                        WHERE user_id = :uid AND content_id IS NOT NULL
+                        SELECT DISTINCT c.content_id FROM contents c
+                        LEFT JOIN user_mappings um ON c.content_id = um.content_id
+                        WHERE (um.user_id = :uid OR um.user_id IS NULL)
+                          AND c.deleted_at IS NULL
                     """),
                     {"uid": user_id},
                 )
@@ -93,14 +95,16 @@ async def get_user_content_ids(user_id: str) -> List[str]:
 
 
 async def get_user_feed_ids(user_id: str) -> List[str]:
-    """Fetch the feed_ids a user is mapped to (excludes content-only mapping rows)."""
+    """Fetch the feed_ids a user is mapped to (including unmapped active feeds)."""
     try:
         async with AsyncDB() as s:
             rows = (
                 await s.execute(
                     text("""
-                        SELECT feed_id FROM user_mappings
-                        WHERE user_id = :uid AND feed_id IS NOT NULL
+                        SELECT DISTINCT f.feed_id FROM feeds f
+                        LEFT JOIN user_mappings um ON f.feed_id = um.feed_id
+                        WHERE (um.user_id = :uid OR um.user_id IS NULL)
+                          AND f.deleted_at IS NULL
                     """),
                     {"uid": user_id},
                 )
@@ -273,3 +277,165 @@ async def delete_all_user_mappings(user_id: str) -> bool:
     except Exception:
         logger.exception("[user_mapping_db_helper] Unexpected error deleting all mappings for user_id=%s", user_id)
         return False
+
+
+async def get_user_sources_with_details(user_id: str) -> List[dict]:
+    """Fetch all content and feed sources mapped to a user, with full details from contents/feeds tables."""
+    try:
+        async with AsyncDB() as s:
+            # Fetch content sources (mapped to user or unmapped active)
+            content_rows = (
+                await s.execute(
+                    text("""
+                        SELECT DISTINCT c.content_id AS id, c.name, c.file_type AS type,
+                               c.chunks, c.file_size, c.inserted_at
+                        FROM contents c
+                        LEFT JOIN user_mappings um ON c.content_id = um.content_id
+                        WHERE (um.user_id = :uid OR um.user_id IS NULL)
+                          AND c.deleted_at IS NULL
+                        ORDER BY c.inserted_at DESC
+                    """),
+                    {"uid": user_id},
+                )
+            ).mappings().all()
+
+            # Fetch feed sources (mapped to user or unmapped active)
+            feed_rows = (
+                await s.execute(
+                    text("""
+                        SELECT DISTINCT f.feed_id AS id, f.url AS name, 'website' AS type,
+                               f.chunks, NULL AS file_size, f.inserted_at
+                        FROM feeds f
+                        LEFT JOIN user_mappings um ON f.feed_id = um.feed_id
+                        WHERE (um.user_id = :uid OR um.user_id IS NULL)
+                          AND f.deleted_at IS NULL
+                        ORDER BY f.inserted_at DESC
+                    """),
+                    {"uid": user_id},
+                )
+            ).mappings().all()
+
+            sources = []
+            for r in content_rows:
+                sources.append({
+                    "id": r["id"],
+                    "name": r["name"],
+                    "type": str(r["type"]).capitalize() if r["type"] != "website" else "Url",
+                    "chunks": r["chunks"],
+                    "file_size": r["file_size"],
+                    "status": "Ingested",
+                    "inserted_at": r["inserted_at"].isoformat() if r["inserted_at"] else None,
+                })
+            for r in feed_rows:
+                sources.append({
+                    "id": r["id"],
+                    "name": r["name"],
+                    "type": "Url",
+                    "chunks": r["chunks"],
+                    "file_size": None,
+                    "status": "Ingested",
+                    "inserted_at": r["inserted_at"].isoformat() if r["inserted_at"] else None,
+                })
+
+            return sources
+    except SQLAlchemyError:
+        logger.exception("[user_mapping_db_helper] Database error fetching sources for user_id=%s", user_id)
+        return []
+    except Exception:
+        logger.exception("[user_mapping_db_helper] Unexpected error fetching sources for user_id=%s", user_id)
+        return []
+
+
+async def get_all_sources_with_details(current_user_id: Optional[str] = None) -> List[dict]:
+    """Fetch all active content and feed sources in the database across all users, with owner information."""
+    try:
+        async with AsyncDB() as s:
+            content_rows = (
+                await s.execute(
+                    text("""
+                        SELECT DISTINCT c.content_id AS id, c.name, c.file_type AS type,
+                               c.chunks, c.file_size, c.inserted_at,
+                               um.user_id AS owner_user_id,
+                               u.username AS owner_username
+                        FROM contents c
+                        LEFT JOIN user_mappings um ON c.content_id = um.content_id
+                        LEFT JOIN users u ON um.user_id = u.user_id
+                        WHERE c.deleted_at IS NULL
+                        ORDER BY c.inserted_at DESC
+                    """)
+                )
+            ).mappings().all()
+
+            feed_rows = (
+                await s.execute(
+                    text("""
+                        SELECT DISTINCT f.feed_id AS id, f.url AS name, 'website' AS type,
+                               f.chunks, NULL AS file_size, f.inserted_at,
+                               um.user_id AS owner_user_id,
+                               u.username AS owner_username
+                        FROM feeds f
+                        LEFT JOIN user_mappings um ON f.feed_id = um.feed_id
+                        LEFT JOIN users u ON um.user_id = u.user_id
+                        WHERE f.deleted_at IS NULL
+                        ORDER BY f.inserted_at DESC
+                    """)
+                )
+            ).mappings().all()
+
+            sources = []
+            seen_ids = set()
+            for r in content_rows:
+                cid = r["id"]
+                if cid in seen_ids:
+                    continue
+                seen_ids.add(cid)
+                is_mine = bool(current_user_id and r["owner_user_id"] == current_user_id)
+                sources.append({
+                    "id": cid,
+                    "name": r["name"],
+                    "type": str(r["type"]).capitalize() if r["type"] != "website" else "Url",
+                    "chunks": r["chunks"],
+                    "file_size": r["file_size"],
+                    "status": "Ingested",
+                    "inserted_at": r["inserted_at"].isoformat() if r["inserted_at"] else None,
+                    "is_mine": is_mine,
+                    "owner": ("You" if is_mine else (r["owner_username"] or "Shared")),
+                })
+
+            for r in feed_rows:
+                fid = r["id"]
+                if fid in seen_ids:
+                    continue
+                seen_ids.add(fid)
+                is_mine = bool(current_user_id and r["owner_user_id"] == current_user_id)
+                sources.append({
+                    "id": fid,
+                    "name": r["name"],
+                    "type": "Url",
+                    "chunks": r["chunks"],
+                    "file_size": None,
+                    "status": "Ingested",
+                    "inserted_at": r["inserted_at"].isoformat() if r["inserted_at"] else None,
+                    "is_mine": is_mine,
+                    "owner": ("You" if is_mine else (r["owner_username"] or "Shared")),
+                })
+
+            return sources
+    except SQLAlchemyError:
+        logger.exception("[user_mapping_db_helper] Database error fetching all sources")
+        return []
+    except Exception:
+        logger.exception("[user_mapping_db_helper] Unexpected error fetching all sources")
+        return []
+
+
+async def get_all_active_source_ids() -> List[str]:
+    """Return all active content_ids and feed_ids across the platform."""
+    try:
+        async with AsyncDB() as s:
+            c_rows = (await s.execute(text("SELECT content_id FROM contents WHERE deleted_at IS NULL"))).scalars().all()
+            f_rows = (await s.execute(text("SELECT feed_id FROM feeds WHERE deleted_at IS NULL"))).scalars().all()
+            return list(set(c_rows) | set(f_rows))
+    except Exception:
+        logger.exception("[user_mapping_db_helper] Error fetching all active source IDs")
+        return []

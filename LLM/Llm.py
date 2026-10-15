@@ -1,17 +1,28 @@
-from groq import AsyncGroq
 import os
 import asyncio
-import redis.asyncio as aioredis
+from groq import AsyncGroq
 from dotenv import load_dotenv
+
 load_dotenv()
 
-redis_client = aioredis.Redis(
-    host=os.getenv("REDIS_HOST", "localhost"),
-    port=int(os.getenv("REDIS_PORT", 6379)),
-    username=os.getenv("REDIS_USER") or None,
-    password=os.getenv("REDIS_PASSWORD") or None,
-    decode_responses=True,
-)
+_use_redis = bool(os.getenv("REDIS_HOST"))
+redis_client = None
+
+if _use_redis:
+    try:
+        import redis.asyncio as aioredis
+        redis_client = aioredis.Redis(
+            host=os.getenv("REDIS_HOST", "localhost"),
+            port=int(os.getenv("REDIS_PORT", 6379)),
+            username=os.getenv("REDIS_USER") or None,
+            password=os.getenv("REDIS_PASSWORD") or None,
+            decode_responses=True,
+            socket_connect_timeout=0.3,
+            socket_timeout=0.3,
+            retry_on_timeout=False,
+        )
+    except Exception:
+        redis_client = None
 
 _client: AsyncGroq | None = None
 _client_key: str | None = None
@@ -19,9 +30,15 @@ _client_lock = asyncio.Lock()
 
 
 async def get_active_key():
-    key = await redis_client.get("nori:groq_active_key")
+    key = None
+    if redis_client:
+        try:
+            key = await asyncio.wait_for(redis_client.get("nori:groq_active_key"), timeout=0.3)
+        except Exception:
+            key = None
     if not key:
-        key = os.getenv("GROQ_API_KEY", "").split(",")[0]
+        raw_keys = os.getenv("GROQ_API_KEY", "")
+        key = raw_keys.split(",")[0].strip() if raw_keys else ""
     return key
 
 

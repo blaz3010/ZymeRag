@@ -6,9 +6,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
-from fastapi import Body, Cookie, Depends, HTTPException, Response
+from fastapi import Body, Cookie, Depends, HTTPException, Request, Response
 
-from Backend.Middleware.auth import auth_middleware
+from Backend.Middleware.auth import auth_middleware, extract_user_id_from_expired_token
 from Dbhelper.user_db_helper import (
     clear_refresh_token,
     create_user,
@@ -129,11 +129,14 @@ async def create_user_new(
 
 
 async def refresh_access_token(
+    request: Request,
     response: Response,
-    user_id: str = Depends(auth_middleware),
     refresh_token: str = Cookie(None),
 ):
     try:
+        user_id = extract_user_id_from_expired_token(request)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
         if not refresh_token:
             raise HTTPException(status_code=401, detail="No refresh token provided")
         is_valid = await verify_refresh_token(user_id=user_id, raw_token=refresh_token)
@@ -159,8 +162,9 @@ async def refresh_access_token(
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Unexpected error in refresh_access_token for user_id=%s", user_id)
+        logger.exception("Unexpected error in refresh_access_token")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 async def logout_user(response: Response, user_id: str = Depends(auth_middleware)):

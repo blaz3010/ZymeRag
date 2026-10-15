@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Upload, Database, LogOut } from 'lucide-react';
+import { Zap, Upload, Database, LogOut, FlaskConical } from 'lucide-react';
 
 export default function Header({ activeTab, setActiveTab, user, onLogout }) {
   const getInitials = (name) => {
@@ -40,6 +40,14 @@ export default function Header({ activeTab, setActiveTab, user, onLogout }) {
           >
             <Database size={15} />
             <span>Ingested Sources</span>
+          </button>
+          <button 
+            className={`tab-pill ${activeTab === 'playground' ? 'active' : ''}`}
+            onClick={() => setActiveTab('playground')}
+          >
+            <FlaskConical size={15} />
+            <span>RAG Test Lab</span>
+            <span className="tab-pill-sparkle">Test</span>
           </button>
         </nav>
 
