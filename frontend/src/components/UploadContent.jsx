@@ -12,6 +12,8 @@ import {
   Sparkles
 } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_BASE || '';
+
 export default function UploadContent({ onUploadSuccess }) {
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [rawText, setRawText] = useState('');
@@ -45,7 +47,7 @@ export default function UploadContent({ onUploadSuccess }) {
 
     try {
       const token = localStorage.getItem('zymerag_access_token');
-      const res = await fetch(`http://localhost:8000${endpoint}`, {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
@@ -73,7 +75,7 @@ export default function UploadContent({ onUploadSuccess }) {
 
     try {
       const token = localStorage.getItem('zymerag_access_token');
-      const res = await fetch(`http://localhost:8000${endpoint}`, {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,

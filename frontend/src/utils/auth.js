@@ -3,7 +3,7 @@
 
 const TOKEN_KEY = 'zymerag_access_token';
 const USER_KEY = 'zymerag_auth_user';
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 export function getStoredUser() {
   try {

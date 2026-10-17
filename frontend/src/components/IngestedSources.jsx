@@ -3,7 +3,7 @@ import { Search, Plus, ExternalLink, Info, Trash2, AlertCircle, User, Globe, Loa
 import SourceMetadataModal from './SourceMetadataModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 // Static fallback only if server cannot be reached at all
 const ALL_SOURCES_FALLBACK = [

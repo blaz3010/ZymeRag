@@ -41,7 +41,7 @@ import {
   Hash
 } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 export default function QueryPlayground({ onNavigateToIngest }) {
   // Source selection & listing state
@@ -652,12 +652,8 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                     className={`qp-source-card ${isChecked ? 'checked' : ''}`}
                     onClick={() => toggleSource(source.id)}
                   >
-                    <div className="qp-card-checkbox">
-                      {isChecked ? (
-                        <CheckSquare size={17} className="qp-check-active" />
-                      ) : (
-                        <Square size={17} className="qp-check-inactive" />
-                      )}
+                    <div className={`qp-custom-checkbox ${isChecked ? 'checked' : ''}`}>
+                      {isChecked && <Check size={12} strokeWidth={3} />}
                     </div>
 
                     <div className="qp-card-body">
@@ -680,10 +676,11 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                       <div className="qp-card-meta">
                         {source.chunks !== undefined && (
                           <span className="qp-meta-item">
-                            <Hash size={10} />
-                            {source.chunks} chunks
+                            <Hash size={12} />
+                            <span>{source.chunks} chunks</span>
                           </span>
                         )}
+                        <span className="qp-meta-divider">·</span>
                         <span className={`qp-status-dot ${isChecked ? 'active' : 'idle'}`} />
                         <span className="qp-meta-status">
                           {isChecked ? 'In Context' : 'Excluded'}
