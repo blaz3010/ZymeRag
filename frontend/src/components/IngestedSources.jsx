@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, ExternalLink, Info, Trash2, AlertCircle, User, Globe, Loader } from 'lucide-react';
+import { Search, Plus, ExternalLink, Info, Trash2, AlertCircle, User, Globe, Loader, FileText, Loader2, Copy, Check, X } from 'lucide-react';
 import SourceMetadataModal from './SourceMetadataModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 
@@ -27,6 +27,12 @@ export default function IngestedSources({ onNavigateToAdd }) {
   const [viewMode, setViewMode] = useState('all'); // 'all' or 'mine'
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
+
+  // Chunks viewer modal state
+  const [chunksSource, setChunksSource] = useState(null);
+  const [chunksText, setChunksText] = useState('');
+  const [chunksLoading, setChunksLoading] = useState(false);
+  const [chunksCopied, setChunksCopied] = useState(false);
 
   // All sources (fetched from backend /sources/all_sources)
   const [allSources, setAllSources] = useState([]);
@@ -71,6 +77,28 @@ export default function IngestedSources({ onNavigateToAdd }) {
       setIsLoading(false);
     }
   }, [viewMode]);
+
+  // Fetch all chunks for a specific source via the /sources/show_chunks endpoint
+  const fetchChunks = useCallback(async (uuid) => {
+    setChunksLoading(true);
+    setChunksText('');
+    try {
+      const res = await fetch(`${API_BASE}/sources/show_chunks?uuid=${encodeURIComponent(uuid)}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to fetch chunks (${res.status})`);
+      }
+      const data = await res.json();
+      setChunksText(data.chunks || '');
+    } catch (err) {
+      console.error('Fetch chunks error:', err);
+      setChunksText(`Error loading chunks: ${err.message}`);
+    } finally {
+      setChunksLoading(false);
+    }
+  }, []);
 
   // Fetch sources when viewMode changes
   useEffect(() => {
@@ -274,6 +302,19 @@ export default function IngestedSources({ onNavigateToAdd }) {
                           <span>Inspect</span>
                         </button>
 
+                        {/* View Chunks Button */}
+                        <button 
+                          className="action-pill-btn inspect-pill" 
+                          title="View Document Chunks"
+                          onClick={() => {
+                            setChunksSource(item);
+                            fetchChunks(item.id);
+                          }}
+                        >
+                          <FileText size={13} />
+                          <span>View Chunks</span>
+                        </button>
+
                         {/* High-End Delete Button */}
                         <button 
                           className="action-pill-btn delete-pill" 
@@ -309,6 +350,72 @@ export default function IngestedSources({ onNavigateToAdd }) {
           onCancel={() => setDeleteTarget(null)}
           isDeleting={isDeleting}
         />
+      )}
+
+      {/* Chunks Viewer Modal */}
+      {chunksSource && (
+        <div className="modal-backdrop" onClick={() => setChunksSource(null)}>
+          <div className="modal-card metadata-modal-card" style={{ maxWidth: '700px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header-styled">
+              <div className="flex-header-title">
+                <div className="modal-icon-badge badge-indigo">
+                  <FileText size={18} />
+                </div>
+                <div>
+                  <h3 className="modal-title-text">Document Chunks</h3>
+                  <p className="modal-subtitle-text">Vectorized text chunks for <strong>{chunksSource.name}</strong></p>
+                </div>
+              </div>
+              <button onClick={() => setChunksSource(null)} className="modal-close-icon-btn">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="modal-body-container" style={{ paddingBottom: 8 }}>
+              <div className="metadata-info-box mb-4">
+                <div className="flex-between mb-1">
+                  <div className="info-label">CHUNKS CONTENT</div>
+                  <button className="copy-uuid-btn" onClick={() => {
+                    navigator.clipboard.writeText(chunksText);
+                    setChunksCopied(true);
+                    setTimeout(() => setChunksCopied(false), 2000);
+                  }}>
+                    {chunksCopied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                    <span>{chunksCopied ? 'Copied' : 'Copy All'}</span>
+                  </button>
+                </div>
+                {chunksLoading ? (
+                  <div className="loading-spinner-box" style={{ padding: '40px 0' }}>
+                    <Loader2 className="animate-spin text-indigo" size={28} />
+                    <span className="uploading-text">Loading chunks…</span>
+                  </div>
+                ) : chunksText.trim() === '' ? (
+                  <div className="empty-table-cell" style={{ padding: '30px 0' }}>
+                    <p className="info-value-text" style={{ color: '#64748b' }}>No chunks found for this source.</p>
+                  </div>
+                ) : (
+                  <div className="code-uuid-block" style={{ 
+                    background: '#f8fafc', 
+                    color: '#0f172a', 
+                    fontSize: '12.5px', 
+                    maxHeight: '420px', 
+                    overflowY: 'auto', 
+                    whiteSpace: 'pre-wrap', 
+                    lineHeight: '1.6' 
+                  }}>
+                    {chunksText}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="modal-footer-styled">
+              <button onClick={() => setChunksSource(null)} className="primary-modal-btn">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

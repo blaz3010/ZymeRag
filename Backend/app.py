@@ -9,6 +9,9 @@ if sys.platform == "win32":
     )
 load_dotenv()
 
+from contextlib import asynccontextmanager
+import logging
+
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -20,7 +23,21 @@ from Backend.Router.user_router import user_router
 from Backend.Router.query_router import query_router
 from Backend.Router.sources_router import sources_router
 
-app = FastAPI(title="ZymeRag Backend API", description="API for ZymeRag Backend", version="1.0.0")
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        from Dbhelper.db import init_db
+        from Dbhelper.query_db_helper import ensure_queries_table
+        await init_db()
+        await ensure_queries_table()
+        logger.info("Application startup: database tables checked successfully.")
+    except Exception as e:
+        logger.warning("Application startup: DB check warning: %s", e)
+    yield
+
+app = FastAPI(title="ZymeRag Backend API", description="API for ZymeRag Backend", version="1.0.0", lifespan=lifespan)
 
 cors_origins = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else [
     "http://localhost:5173",
@@ -53,6 +70,8 @@ if os.path.exists(static_dir):
 
 @app.get("/favicon.ico")
 @app.get("/favicon.svg")
+@app.get("/apple-touch-icon.png")
+@app.get("/apple-touch-icon-precomposed.png")
 async def get_favicon():
     fav_svg = os.path.join(static_dir, "favicon.svg")
     if os.path.exists(fav_svg):

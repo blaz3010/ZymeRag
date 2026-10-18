@@ -33,7 +33,7 @@ class SemanticQuery:
         if not path.is_relative_to(BASE_DIR):
             raise ValueError(f"Invalid uuid: {uuid!r}")
         if not path.is_dir():
-            logger.warning("Skipping missing index: %s", path)
+            logger.debug("Skipping missing index: %s", path)
             return None
         return str(path)
 

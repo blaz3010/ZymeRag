@@ -31,9 +31,27 @@ class BM25:
         base = (BASE_DIR / folder / uuid).resolve()
         if not base.is_relative_to(BASE_DIR):
             raise ValueError(f"Invalid uuid: {uuid!r}")
+        if not base.is_dir():
+            return None
         bm25_path = base / "bm25.pkl"
         if not bm25_path.is_file():
-            logger.warning("Skipping missing BM25 file: %s", bm25_path)
+            index_path = base / "index.pkl"
+            if index_path.is_file():
+                try:
+                    from rank_bm25 import BM25Okapi
+                    with open(index_path, "rb") as f:
+                        docstore, id_map = pickle.load(f)
+                    docs = [docstore._dict[id_] for id_ in id_map.values() if id_ in getattr(docstore, "_dict", {})]
+                    documents = [getattr(d, "page_content", str(d)) for d in docs]
+                    tokenized = [BM25.tokenize(doc) for doc in documents]
+                    bm25 = BM25Okapi(tokenized)
+                    with open(bm25_path, "wb") as f:
+                        pickle.dump({"documents": documents, "bm25": bm25}, f)
+                    logger.info("Auto-generated missing BM25 index for %s", base)
+                    return str(bm25_path)
+                except Exception as e:
+                    logger.debug("Could not auto-generate BM25 for %s: %s", base, e)
+            logger.debug("Skipping missing BM25 file: %s", bm25_path)
             return None
         return str(bm25_path)
 

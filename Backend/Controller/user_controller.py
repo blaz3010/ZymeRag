@@ -167,14 +167,26 @@ async def refresh_access_token(
 
 
 
-async def logout_user(response: Response, user_id: str = Depends(auth_middleware)):
+async def logout_user(request: Request, response: Response):
     try:
-        await clear_refresh_token(user_id=user_id)
+        user_id = None
+        try:
+            user_id = await auth_middleware(request)
+        except Exception:
+            user_id = extract_user_id_from_expired_token(request)
+        if user_id:
+            try:
+                await clear_refresh_token(user_id=user_id)
+            except Exception:
+                pass
+        response.delete_cookie("access_token", path="/")
         response.delete_cookie("refresh_token", path="/")
         return {"message": "Logged out successfully"}
     except Exception as e:
-        logger.exception("Unexpected error in logout_user for user_id=%s", user_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Unexpected error in logout_user")
+        response.delete_cookie("access_token", path="/")
+        response.delete_cookie("refresh_token", path="/")
+        return {"message": "Logged out successfully"}
 
 
 

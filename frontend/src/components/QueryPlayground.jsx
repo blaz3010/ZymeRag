@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   FlaskConical,
   Send,
@@ -77,6 +77,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
   const [toast, setToast] = useState(null);
   const chatBottomRef = useRef(null);
   const textareaRef = useRef(null);
+  const [textareaHeight, setTextareaHeight] = useState(48);
 
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
@@ -129,7 +130,6 @@ export default function QueryPlayground({ onNavigateToIngest }) {
     }
   };
 
-
   // 2. Fetch user's saved query history
   const fetchHistory = async () => {
     setHistoryLoading(true);
@@ -156,6 +156,23 @@ export default function QueryPlayground({ onNavigateToIngest }) {
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, querying]);
+
+  // Auto-grow textarea so long questions never force horizontal scroll
+  const adjustTextareaHeight = useCallback((el) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+    setTextareaHeight(el.scrollHeight);
+  }, []);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = Math.max(el.scrollHeight, 48) + 'px';
+      setTextareaHeight(Math.max(el.scrollHeight, 48));
+    }
+  }, [question]);
 
   // Toggle single source selection
   const toggleSource = (id) => {
@@ -319,6 +336,8 @@ export default function QueryPlayground({ onNavigateToIngest }) {
 
     setChatMessages((prev) => [...prev, userMessage]);
     setQuestion('');
+    setTextareaHeight(48);
+    if (textareaRef.current) textareaRef.current.style.height = '48px';
     setQuerying(true);
 
     try {
@@ -420,12 +439,12 @@ export default function QueryPlayground({ onNavigateToIngest }) {
 
   const getSourceTypeClass = (type) => {
     const t = (type || '').toLowerCase();
-    if (t === 'pdf') return 'src-type-pdf';
-    if (t === 'url' || t === 'website') return 'src-type-url';
-    if (t === 'docx' || t === 'word') return 'src-type-docx';
-    if (t === 'csv') return 'src-type-csv';
-    if (['image', 'png', 'jpg', 'jpeg'].includes(t)) return 'src-type-image';
-    return 'src-type-generic';
+    if (t === 'pdf') return 'qp-type-pdf';
+    if (t === 'url' || t === 'website') return 'qp-type-url';
+    if (t === 'docx' || t === 'word') return 'qp-type-docx';
+    if (t === 'csv') return 'qp-type-csv';
+    if (['image', 'png', 'jpg', 'jpeg'].includes(t)) return 'qp-type-image';
+    return 'qp-type-generic';
   };
 
   // Quick Prompt suggestion chips
@@ -434,30 +453,30 @@ export default function QueryPlayground({ onNavigateToIngest }) {
       icon: <BookOpen size={18} />,
       title: 'Summarize Key Findings',
       prompt: 'Summarize the core findings, conclusions, and objectives across the selected documents.',
-      gradient: 'suggestion-gradient-1',
+      gradient: 'qp-suggestion-gradient-1',
     },
     {
       icon: <Cpu size={18} />,
       title: 'Technical Deep Dive',
       prompt: 'What are the main technical methods, architectures, or implementation constraints described?',
-      gradient: 'suggestion-gradient-2',
+      gradient: 'qp-suggestion-gradient-2',
     },
     {
       icon: <BarChart3 size={18} />,
       title: 'Extract Data & Metrics',
       prompt: 'Extract all specific quantitative metrics, performance stats, and numerical data points mentioned.',
-      gradient: 'suggestion-gradient-3',
+      gradient: 'qp-suggestion-gradient-3',
     },
     {
       icon: <AlertCircle size={18} />,
       title: 'Risks & Limitations',
       prompt: 'What are the key limitations, challenges, risks, or edge cases discussed in these documents?',
-      gradient: 'suggestion-gradient-4',
+      gradient: 'qp-suggestion-gradient-4',
     },
   ];
 
   return (
-    <div className="qp-root">
+    <div className="workspace-container">
       {/* Toast Notification */}
       {toast && (
         <div className={`qp-toast qp-toast-${toast.type}`}>
@@ -470,46 +489,40 @@ export default function QueryPlayground({ onNavigateToIngest }) {
       )}
 
       {/* ===== HERO HEADER ===== */}
-      <div className="qp-hero">
-        <div className="qp-hero-glow" />
-        <div className="qp-hero-content">
-          <div className="qp-hero-left">
-            <div className="qp-hero-tag">
-              <span className="qp-hero-tag-dot" />
-              <FlaskConical size={14} />
-              <span>RAG Testing Lab</span>
-              <span className="qp-hero-tag-sep">·</span>
-              <span className="qp-hero-tag-count">{sources.length} Sources Indexed</span>
-            </div>
-            <h1 className="qp-hero-title">Query Playground</h1>
-            <p className="qp-hero-subtitle">
-              Test retrieval accuracy and synthesis quality against your ingested knowledge base in real time.
-            </p>
-          </div>
-          <div className="qp-hero-actions">
-            <button
-              className="qp-btn qp-btn-ghost"
-              onClick={() => {
-                setShowHistoryDrawer(!showHistoryDrawer);
-                fetchHistory();
-              }}
-            >
-              <History size={15} />
-              <span>History</span>
-              {queryHistory.length > 0 && <span className="qp-btn-badge">{queryHistory.length}</span>}
-            </button>
-
-            {onNavigateToIngest && (
-              <button
-                className="qp-btn qp-btn-primary-outline"
-                onClick={onNavigateToIngest}
-              >
-                <PlusCircle size={15} />
-                <span>Ingest Data</span>
-              </button>
-            )}
-          </div>
+      <div className="workspace-header-center">
+        <div className="gradient-badge-small">
+          <FlaskConical size={14} />
+          <span>RAG Testing Lab</span>
         </div>
+        <h1 className="title-hero">Query Playground</h1>
+        <p className="subtitle-hero">
+          Test retrieval accuracy and synthesis quality against your ingested knowledge base in real time.
+        </p>
+      </div>
+
+      {/* Action bar: History + Ingest */}
+      <div className="qp-action-bar">
+        <button
+          className="qp-btn qp-btn-ghost"
+          onClick={() => {
+            setShowHistoryDrawer(!showHistoryDrawer);
+            fetchHistory();
+          }}
+        >
+          <History size={15} />
+          <span>History</span>
+          {queryHistory.length > 0 && <span className="qp-btn-badge">{queryHistory.length}</span>}
+        </button>
+
+        {onNavigateToIngest && (
+          <button
+            className="qp-btn qp-btn-primary-outline"
+            onClick={onNavigateToIngest}
+          >
+            <PlusCircle size={15} />
+            <span>Ingest Data</span>
+          </button>
+        )}
       </div>
 
       {/* ===== MAIN SPLIT LAYOUT ===== */}
@@ -563,7 +576,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
               <Search size={14} className="qp-search-icon" />
               <input
                 type="text"
-                placeholder="Filter sources..."
+                placeholder="Filter sources…"
                 value={sourceSearch}
                 onChange={(e) => setSourceSearch(e.target.value)}
                 className="qp-search-input"
@@ -754,7 +767,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                 {/* Suggestion Cards */}
                 <div className="qp-suggestions">
                   <span className="qp-suggestions-label">Quick test prompts</span>
-                  <div className="qp-suggestions-grid">
+                  <div className="qp-suggestions-grid qp-suggestions-centered">
                     {promptSuggestions.map((item, idx) => (
                       <button
                         key={idx}
@@ -947,7 +960,10 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                     : 'Ask anything about your documents… (Enter ↵ to send)'
                 }
                 value={question}
-                onChange={(e) => setQuestion(e.target.value)}
+                onChange={(e) => {
+                  setQuestion(e.target.value);
+                  adjustTextareaHeight(e.target);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -956,7 +972,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                     }
                   }
                 }}
-                rows={2}
+                style={{ height: textareaHeight }}
                 disabled={querying}
               />
               <button
@@ -1018,6 +1034,8 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                       className="qp-history-card"
                       onClick={() => {
                         setQuestion(item.question);
+                        setTextareaHeight(48);
+                        if (textareaRef.current) textareaRef.current.style.height = '48px';
                         setShowHistoryDrawer(false);
                       }}
                     >

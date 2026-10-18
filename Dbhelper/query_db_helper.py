@@ -13,29 +13,41 @@ logger = logging.getLogger(__name__)
 _IN_MEMORY_QUERY_STORE = []
 
 
+_TABLE_ENSURED = False
+
+
 async def ensure_queries_table() -> bool:
     """Ensure that the user_queries table and indexes exist in PostgreSQL."""
+    global _TABLE_ENSURED
+    if _TABLE_ENSURED:
+        return True
+
+    ddl_statements = [
+        """
+        CREATE TABLE IF NOT EXISTS user_queries (
+            id           BIGSERIAL    PRIMARY KEY,
+            query_id     VARCHAR(255) UNIQUE NOT NULL,
+            user_id      VARCHAR(255) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+            question     TEXT         NOT NULL,
+            answer       TEXT         NOT NULL,
+            content_ids  TEXT         NOT NULL DEFAULT '[]',
+            feed_ids     TEXT         NOT NULL DEFAULT '[]',
+            selected_ids TEXT         NOT NULL DEFAULT '[]',
+            chunks_found INTEGER      NOT NULL DEFAULT 0,
+            created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_user_queries_user_id ON user_queries(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_user_queries_created_at ON user_queries(created_at DESC)",
+    ]
+
     try:
         async with AsyncDB() as s:
-            await s.execute(
-                text("""
-                    CREATE TABLE IF NOT EXISTS user_queries (
-                        id           BIGSERIAL    PRIMARY KEY,
-                        query_id     VARCHAR(255) UNIQUE NOT NULL,
-                        user_id      VARCHAR(255) NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-                        question     TEXT         NOT NULL,
-                        answer       TEXT         NOT NULL,
-                        content_ids  TEXT         NOT NULL DEFAULT '[]',
-                        feed_ids     TEXT         NOT NULL DEFAULT '[]',
-                        selected_ids TEXT         NOT NULL DEFAULT '[]',
-                        chunks_found INTEGER      NOT NULL DEFAULT 0,
-                        created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-                    );
-                    CREATE INDEX IF NOT EXISTS idx_user_queries_user_id ON user_queries(user_id);
-                    CREATE INDEX IF NOT EXISTS idx_user_queries_created_at ON user_queries(created_at DESC);
-                """)
-            )
+            for stmt in ddl_statements:
+                await s.execute(text(stmt))
             await s.commit()
+            _TABLE_ENSURED = True
+            logger.info("[query_db_helper] user_queries table and indexes verified.")
             return True
     except Exception as e:
         logger.warning("[query_db_helper] Table creation check failed or already exists: %s", e)
