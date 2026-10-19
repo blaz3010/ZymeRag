@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import List, Optional
 from fastapi import Depends, HTTPException, Query
@@ -6,6 +7,7 @@ from pydantic import BaseModel
 from Query.DirectQuery import get_all_chunks
 from LLM.Llm import generate_answer
 from Backend.Middleware.auth import auth_middleware
+from Utils.PickleReader import read_pickle_file
 from Dbhelper.user_mapping_db_helper import (
     get_user_content_ids,
     get_user_feed_ids,
@@ -44,6 +46,14 @@ async def build_context(chunks: list[tuple]) -> str:
         else:
             texts.append(str(doc))
     return "\n\n".join(texts)
+
+async def _load_source_text(source_id: str) -> str:
+    docstore, index_to_id = await read_pickle_file(source_id)
+    parts = (
+        docstore._dict[index_to_id[i]].page_content
+        for i in range(len(index_to_id))
+    )
+    return "\n\n".join(p for p in parts if p.strip())
 
 
 def extract_inspectable_chunks(chunks: list[tuple], max_items: int = 8) -> list:
@@ -90,6 +100,30 @@ async def query_endpoint(question: str = Query(...), ids: list[str] = Query(...)
 
     context = await build_context(chunks)
 
+    try:
+        answer = await generate_answer(question, context)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"LLM generation failed: {e}")
+
+    return answer
+
+async def query_endpoint_fullcontext(question: str = Query(...), ids: list[str] = Query(...)):
+    if not question or not question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty")
+    results = await asyncio.gather(
+        *(_load_source_text(sid) for sid in ids),
+        return_exceptions=True,
+    )
+
+    texts = []
+    for sid, res in zip(ids, results):
+        if isinstance(res, Exception):
+            logger.warning("[query_endpoint_fullcontext] Failed to load %s: %s", sid, res)
+        elif res:
+            texts.append(res)
+    context = "\n\n".join(texts)
+    if not context.strip():
+        raise HTTPException(status_code=404, detail="No content found for the given source IDs")
     try:
         answer = await generate_answer(question, context)
     except Exception as e:
