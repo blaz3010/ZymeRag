@@ -67,6 +67,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
   const [chatMessages, setChatMessages] = useState([]);
   const [expandedChunks, setExpandedChunks] = useState({});
   const [copiedId, setCopiedId] = useState(null);
+  const [retrievalMode, setRetrievalMode] = useState('hybrid'); // 'hybrid' | 'fullcontext'
 
   // Query History & Drawer
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
@@ -341,17 +342,32 @@ export default function QueryPlayground({ onNavigateToIngest }) {
     setQuerying(true);
 
     try {
-      const res = await fetch(`${API_BASE}/query/user_query`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-        },
-        body: JSON.stringify({
-          question: prompt,
-          selected_ids: activeIds,
-        }),
-      });
+      const endpoint = retrievalMode === 'fullcontext' ? '/query/query_fullcontext' : '/query/user_query';
+      const isFullContext = retrievalMode === 'fullcontext';
+      let res;
+      if (isFullContext) {
+        const params = new URLSearchParams();
+        params.append('question', prompt);
+        activeIds.forEach((id) => params.append('ids', id));
+        res = await fetch(`${API_BASE}${endpoint}?${params.toString()}`, {
+          method: 'GET',
+          headers: {
+            ...getAuthHeaders(),
+          },
+        });
+      } else {
+        res = await fetch(`${API_BASE}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({
+            question: prompt,
+            selected_ids: activeIds,
+          }),
+        });
+      }
 
       const latencyMs = Math.round(performance.now() - startTime);
 
@@ -367,6 +383,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
           chunks: data.chunks || [],
           latencyMs,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          retrievalMode,
         };
         setChatMessages((prev) => [...prev, assistantMessage]);
         fetchHistory(); // Refresh DB query history
@@ -380,6 +397,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
           chunksFound: 0,
           latencyMs,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          retrievalMode,
         };
         setChatMessages((prev) => [...prev, errorMessage]);
       }
@@ -395,6 +413,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
           chunksFound: 0,
           latencyMs,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          retrievalMode,
         },
       ]);
     } finally {
@@ -724,10 +743,46 @@ export default function QueryPlayground({ onNavigateToIngest }) {
           {/* Console Top Bar */}
           <div className="qp-console-bar">
             <div className="qp-console-pills">
-              <span className="qp-pill qp-pill-amber">
-                <Sparkles size={12} />
-                <span>Hybrid RAG</span>
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0', background: '#1a1a1a', padding: '2px', borderRadius: '6px', border: '1px solid #333' }}>
+                <button
+                  onClick={() => setRetrievalMode('hybrid')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '3px 10px',
+                    borderRadius: '4px',
+                    border: 'none',
+                    background: retrievalMode === 'hybrid' ? '#f59e0b' : 'transparent',
+                    color: retrievalMode === 'hybrid' ? '#000' : '#ccc',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: 600
+                  }}
+                >
+                  <Sparkles size={11} />
+                  <span>Hybrid</span>
+                </button>
+                <button
+                  onClick={() => setRetrievalMode('fullcontext')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '3px 10px',
+                    borderRadius: '4px',
+                    border: 'none',
+                    background: retrievalMode === 'fullcontext' ? '#f59e0b' : 'transparent',
+                    color: retrievalMode === 'fullcontext' ? '#000' : '#ccc',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: 600
+                  }}
+                >
+                  <BookOpen size={11} />
+                  <span>Full Context</span>
+                </button>
+              </div>
               <span className="qp-pill qp-pill-slate">
                 <Cpu size={12} />
                 <span>Groq LLaMA 3.3 70B</span>
@@ -753,16 +808,17 @@ export default function QueryPlayground({ onNavigateToIngest }) {
           <div className="qp-chat-canvas">
             {chatMessages.length === 0 ? (
               <div className="qp-welcome">
-                <div className="qp-welcome-orb">
-                  <div className="qp-welcome-orb-inner">
-                    <FlaskConical size={30} />
+                  <div className="qp-welcome-orb">
+                    <div className="qp-welcome-orb-inner">
+                      <FlaskConical size={30} />
+                    </div>
+                    <div className="qp-welcome-orb-ring" />
                   </div>
-                  <div className="qp-welcome-orb-ring" />
-                </div>
-                <h2 className="qp-welcome-title">Knowledge Retrieval Lab</h2>
-                <p className="qp-welcome-desc">
-                  Select sources on the left and ask questions to evaluate your RAG pipeline's accuracy and retrieval quality.
-                </p>
+                  <h2 className="qp-welcome-title">Knowledge Retrieval Lab</h2>
+                  <p className="qp-welcome-desc">
+                    Select sources on the left and ask questions to evaluate your RAG pipeline's accuracy and retrieval quality.
+                    Currently using <strong>{retrievalMode === 'fullcontext' ? 'Full Context' : 'Hybrid RAG'}</strong> mode.
+                  </p>
 
                 {/* Suggestion Cards */}
                 <div className="qp-suggestions">
@@ -822,6 +878,12 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                               <Bot size={15} />
                             </div>
                             <span className="qp-msg-ai-name">Zyme RAG</span>
+                            {msg.retrievalMode && (
+                              <span className="qp-latency" title="Retrieval mode">
+                                {msg.retrievalMode === 'fullcontext' ? <BookOpen size={10} /> : <Sparkles size={10} />}
+                                {msg.retrievalMode === 'fullcontext' ? 'Full' : 'Hybrid'}
+                              </span>
+                            )}
                             {msg.latencyMs && (
                               <span className="qp-latency">
                                 <Zap size={10} />
@@ -928,9 +990,10 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                     <div className="qp-thinking-dots">
                       <span /><span /><span />
                     </div>
-                    <span className="qp-thinking-text">
-                      Retrieving from {selectedIds.size} source{selectedIds.size === 1 ? '' : 's'} and synthesizing…
-                    </span>
+                  <span className="qp-thinking-text">
+                    Retrieving from {selectedIds.size} source{selectedIds.size === 1 ? '' : 's'} and synthesizing…
+                    {retrievalMode === 'fullcontext' ? ' (Full Context)' : ' (Hybrid RAG)'}
+                  </span>
                   </div>
                 )}
                 <div ref={chatBottomRef} />
@@ -940,6 +1003,54 @@ export default function QueryPlayground({ onNavigateToIngest }) {
 
           {/* Input Area */}
           <div className="qp-input-area">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', padding: '6px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <span style={{ fontSize: '11px', color: '#a1a1aa', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Zap size={12} />
+                Retrieval Mode
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '2px', background: 'rgba(0,0,0,0.3)', padding: '2px', borderRadius: '6px' }}>
+                <button
+                  onClick={() => setRetrievalMode('hybrid')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '4px 10px',
+                    borderRadius: '4px',
+                    border: 'none',
+                    background: retrievalMode === 'hybrid' ? '#f59e0b' : 'transparent',
+                    color: retrievalMode === 'hybrid' ? '#000' : '#a1a1aa',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <Sparkles size={12} />
+                  <span>Hybrid RAG</span>
+                </button>
+                <button
+                  onClick={() => setRetrievalMode('fullcontext')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '4px 10px',
+                    borderRadius: '4px',
+                    border: 'none',
+                    background: retrievalMode === 'fullcontext' ? '#f59e0b' : 'transparent',
+                    color: retrievalMode === 'fullcontext' ? '#000' : '#a1a1aa',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <BookOpen size={12} />
+                  <span>Full Context</span>
+                </button>
+              </div>
+            </div>
             <div className="qp-input-context-bar">
               <Layers size={12} />
               {selectedIds.size === 0 ? (
