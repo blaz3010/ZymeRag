@@ -1,11 +1,9 @@
 import asyncio
-import logging
 from typing import List, Optional
 from fastapi import Depends, HTTPException, Query
 from pydantic import BaseModel
-
 import tiktoken
-
+from Backend.Utils.Logger import logger
 from Query.DirectQuery import get_all_chunks
 from LLM.Llm import generate_answer
 from Backend.Middleware.auth import auth_middleware
@@ -23,9 +21,6 @@ from Dbhelper.query_db_helper import (
     delete_user_query,
     clear_user_query_history,
 )
-
-logger = logging.getLogger(__name__)
-
 
 class QueryRequest(BaseModel):
     question: str
@@ -134,13 +129,18 @@ async def query_endpoint_fullcontext(question: str = Query(...), ids: list[str] 
         elif res:
             texts.append(res)
     context = "\n\n".join(texts)
+    logger.info("[query_fullcontext] sources=%d chars=%d words=%d",len(texts),len(context),len(context.split()),)
     if not context.strip():
         raise HTTPException(status_code=404, detail="No content found for the given source IDs")
     try:
         answer = await generate_answer(question, context)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM generation failed: {e}")
-
+    logger.info(
+    "[query_fullcontext] answer_type=%s answer_length=%d",
+    type(answer).__name__,
+    len(answer) if isinstance(answer, str) else 0,)
+    logger.info("[query_fullcontext] answer=%s", answer)
     return answer
 
 
