@@ -160,23 +160,16 @@ async def user_query_endpoint(body: UserQueryRequest, user_id: str = Depends(aut
     selected_ids = body.selected_ids or []
     if not selected_ids:
         raise HTTPException(status_code=400, detail="Please select at least one document or source to query against")
-
-    # Fetch user mapped content_ids and feed_ids, and all active system IDs
     user_content_ids = set(await get_user_content_ids(user_id))
     user_feed_ids = set(await get_user_feed_ids(user_id))
     all_user_ids = user_content_ids | user_feed_ids
     all_system_ids = set(await get_all_active_source_ids())
     allowed_ids = all_user_ids | all_system_ids
-
-    # Validate that selected IDs exist in active system/user sources
     valid_ids = [sid for sid in selected_ids if sid in allowed_ids]
     if not valid_ids:
         raise HTTPException(status_code=403, detail="None of the selected sources are available or exist in your knowledge base")
-
     matched_content_ids = [sid for sid in valid_ids if sid in (user_content_ids | all_system_ids)]
     matched_feed_ids = [sid for sid in valid_ids if sid in (user_feed_ids | all_system_ids)]
-
-    # Run RAG retrieval pipeline
     chunks = []
     try:
         chunks = await get_all_chunks(question, valid_ids)
@@ -184,9 +177,7 @@ async def user_query_endpoint(body: UserQueryRequest, user_id: str = Depends(aut
         logger.warning("[user_query_endpoint] Missing index files: %s", e)
     except Exception as e:
         logger.exception("[user_query_endpoint] Retrieval failed: %s", e)
-
     inspectable_chunks = extract_inspectable_chunks(chunks)
-
     if not chunks:
         answer = (
             "No relevant chunks were matched in the selected documents for your query. "
@@ -199,8 +190,6 @@ async def user_query_endpoint(body: UserQueryRequest, user_id: str = Depends(aut
         except Exception as e:
             logger.exception("[user_query_endpoint] LLM answer generation failed: %s", e)
             raise HTTPException(status_code=502, detail=f"LLM answer generation failed: {e}")
-
-    # Persist query in database linked with content_ids and feed_ids
     saved_record = await save_user_query(
         user_id=user_id,
         question=question,
@@ -210,7 +199,6 @@ async def user_query_endpoint(body: UserQueryRequest, user_id: str = Depends(aut
         selected_ids=valid_ids,
         chunks_found=len(chunks),
     )
-
     return {
         **saved_record,
         "sources_queried": len(valid_ids),
