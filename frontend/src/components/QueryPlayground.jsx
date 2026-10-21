@@ -373,14 +373,15 @@ export default function QueryPlayground({ onNavigateToIngest }) {
 
       if (res.ok) {
         const data = await res.json();
+        const answer = typeof data === 'string' ? data : (data.answer ?? '');
         const assistantMessage = {
           id: assistantMsgId,
           role: 'assistant',
-          queryId: data.query_id,
-          answer: data.answer,
-          chunksFound: data.chunks_found ?? (data.chunks?.length || 0),
-          sourcesQueried: data.sources_queried ?? activeIds.length,
-          chunks: data.chunks || [],
+          queryId: typeof data === 'object' ? data.query_id : undefined,
+          answer,
+          chunksFound: (typeof data === 'object' ? (data.chunks_found ?? (data.chunks?.length || 0)) : 0),
+          sourcesQueried: (typeof data === 'object' ? (data.sources_queried ?? activeIds.length) : activeIds.length),
+          chunks: (typeof data === 'object' ? (data.chunks || []) : []),
           latencyMs,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           retrievalMode,

@@ -4,6 +4,8 @@ from typing import List, Optional
 from fastapi import Depends, HTTPException, Query
 from pydantic import BaseModel
 
+import tiktoken
+
 from Query.DirectQuery import get_all_chunks
 from LLM.Llm import generate_answer
 from Backend.Middleware.auth import auth_middleware
@@ -47,13 +49,23 @@ async def build_context(chunks: list[tuple]) -> str:
             texts.append(str(doc))
     return "\n\n".join(texts)
 
-async def _load_source_text(source_id: str) -> str:
+
+MAX_FULLCONTEXT_TOKENS = 6000
+_tokenizer = tiktoken.get_encoding("cl100k_base")
+
+
+async def _load_source_text(source_id: str, max_tokens: int = MAX_FULLCONTEXT_TOKENS) -> str:
     docstore, index_to_id = await read_pickle_file(source_id)
     parts = (
         docstore._dict[index_to_id[i]].page_content
         for i in range(len(index_to_id))
     )
-    return "\n\n".join(p for p in parts if p.strip())
+    text = "\n\n".join(p for p in parts if p.strip())
+    tokens = _tokenizer.encode(text)
+    if len(tokens) <= max_tokens:
+        return text
+    truncated = _tokenizer.decode(tokens[:max_tokens])
+    return truncated + "\n\n[...truncated to fit token limit...]"
 
 
 def extract_inspectable_chunks(chunks: list[tuple], max_items: int = 8) -> list:

@@ -65,4 +65,9 @@ async def generate_answer(question, context):
         messages=[{"role": "user", "content": prompt}],
         temperature=0.2,
     )
-    return response.choices[0].message.content
+    msg = response.choices[0].message
+    content = msg.content
+    if not content:
+        # Some models put the answer in reasoning_content
+        content = getattr(msg, "reasoning_content", None) or getattr(msg, "reasoning", None)
+    return content or ""
