@@ -1,0 +1,39 @@
+services:
+  # ── FastAPI Backend ──────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zymerag-backend
+    env_file: .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8000
+    ports:
+      - "8000:8000"
+    volumes:
+      # Live-reload: mount source code so you don't need to rebuild on every change
+      - .:/app
+      # Prevent host venv / __pycache__ from leaking into the container
+      - /app/__pycache__
+      - /app/.venv
+    restart: unless-stopped
+
+  # ── Vite + React Frontend (dev server) ──────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: zymerag-frontend
+    environment:
+      - VITE_API_URL=http://backend:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      # Live-reload: mount frontend source
+      - ./frontend:/app
+      # Keep node_modules from the image (don't overwrite with host copy)
+      - /app/node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped
