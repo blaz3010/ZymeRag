@@ -31,7 +31,7 @@ async def main():
         "Chunks Updation",
         {},
         { 
-            "repeat": {"every": 24*60* 60 * 1000},
+            "repeat": {"every": 24 * 60 * 60 * 1000},
             "attempts": 3,
             "backoff": {"type": "exponential", "delay": 10000},
         },
