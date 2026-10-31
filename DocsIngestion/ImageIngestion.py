@@ -1,116 +1,109 @@
 import asyncio
-from io import BytesIO
-import pickle
-import shutil
-
-from pathlib import Path as SyncPath
-from PIL import Image
-from rank_bm25 import BM25Okapi
-import re
-import numpy as np
-
 import uuid
-from Embeddings.Embeddingmaker import Embedder
-from Dbhelper.pdf_db_helper import save_content_to_database
-from langchain_community.vectorstores import FAISS
+from io import BytesIO
 
-BASE_DIR = SyncPath("Data").resolve()
-content_dir = BASE_DIR / "Content"
-from Splitter.PdfSplitter import pdf_splitter
+import numpy as np
+from PIL import Image
+
+from Dbhelper.document_chunks_db_helper import (
+    save_chunks_to_database,
+    delete_chunks_from_database,
+)
+from Dbhelper.pdf_db_helper import save_content_to_database
 from Embeddings.Embeddingmaker import embedder as embedding_maker
+from Splitter.PdfSplitter import pdf_splitter
 
 _ocr_engine = None
 
-def tokenize(text: str):
-    return re.findall(r"\b\w+\b", text.lower())
 
 def get_ocr_engine():
     global _ocr_engine
     if _ocr_engine is None:
         try:
-            from paddleocr import PaddleOCR
             import torch
+            from paddleocr import PaddleOCR
+
             device = "gpu" if torch.cuda.is_available() else "cpu"
             _ocr_engine = PaddleOCR(
                 lang="en",
                 use_doc_orientation_classify=False,
                 use_doc_unwarping=True,
                 use_textline_orientation=False,
-                device=device
+                device=device,
             )
-        except Exception:
+        except Exception as e:
+            print(f"PaddleOCR unavailable, falling back to pytesseract: {e}")
             _ocr_engine = False
     return _ocr_engine
 
 
-def ocr_doing(image_bytes: bytes):
+def ocr_doing(image_bytes: bytes) -> str:
+    image = Image.open(BytesIO(image_bytes)).convert("RGB")
     engine = get_ocr_engine()
     if not engine:
         import pytesseract
-        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+
         return pytesseract.image_to_string(image)
-    image = Image.open(BytesIO(image_bytes)).convert("RGB")
-    image_np = np.array(image)
-    result = engine.predict(image_np)
+
+    result = engine.predict(np.array(image))
     texts = []
     for res in result:
-        data = res.json["res"]
-        texts.extend(data["rec_texts"])
+        texts.extend(res.json["res"]["rec_texts"])
     return "\n".join(texts)
 
 
-async def read_text_from_image(file):
+async def read_text_from_image(file) -> str:
     image_bytes = await file.read()
-    result = await asyncio.to_thread(ocr_doing, image_bytes)  # fixed: pass raw bytes, not a BytesIO
-    return result
+    return await asyncio.to_thread(ocr_doing, image_bytes)
 
 
-def _build_and_save_index_sync(chunks, content_path: SyncPath):
-    vectorstore = FAISS.from_documents(
-        chunks,
-        embedding_maker
+async def build_and_save_index(chunks, content_id=None, feed_id=None) -> bool:
+    documents = [chunk.page_content for chunk in chunks]
+    embeddings = await asyncio.to_thread(embedding_maker.embed_documents, documents)
+
+    success = await save_chunks_to_database(
+        chunks=chunks,
+        embeddings=embeddings,
+        content_id=content_id,
+        feed_id=feed_id,
     )
-    vectorstore.save_local(
-        str(content_path)
-    )
-    documents = [
-        chunk.page_content
-        for chunk in chunks
-    ]
-    tokenized_documents = [
-        tokenize(document)
-        for document in documents
-    ]
-    bm25 = BM25Okapi(
-        tokenized_documents
-    )
-    bm25_data = {
-        "documents": documents,
-        "bm25": bm25
-    }
-    bm25_path = content_path / "bm25.pkl"
-    with open(bm25_path, "wb") as f:
-        pickle.dump(
-            bm25_data,
-            f
-        )
+    if not success:
+        raise RuntimeError("Failed to save document embeddings")
+    return True
 
 
 async def ingestimage(file, name: str):
+    content_id = str(uuid.uuid4())
+    chunks_saved = False
     try:
         text = await read_text_from_image(file)
-        id = str(uuid.uuid4())
-        content_path = content_dir / f"{id}"
-        await asyncio.to_thread(content_path.mkdir, parents=True, exist_ok=True)
+        if not text or not text.strip():
+            print(f"No text detected in image {name}")
+            return None
 
         chunks = await asyncio.to_thread(pdf_splitter.split, text)
-        await asyncio.to_thread(_build_and_save_index_sync, chunks, content_path)
+        if not chunks:
+            print(f"Splitter produced no chunks for image {name}")
+            return None
 
-        database_saved = await save_content_to_database(name=name, content_id=id, doc_type="image", chunks=len(chunks))
+        chunks_saved=await build_and_save_index(chunks, content_id=content_id, feed_id=None)
+        database_saved = await save_content_to_database(
+            name=name,
+            content_id=content_id,
+            doc_type="image",
+            chunks=len(chunks),
+        )
         if database_saved:
-            print(f"Image ingested and saved to database with ID: {id}")
-            return id
+            print(f"Image ingested and saved to database with ID: {content_id}")
+            return content_id
+        await delete_chunks_from_database(content_id=content_id)
         return None
+
     except Exception as e:
-        print(f"Error Occured While Proccessing the Image {name} and Error is {e}")
+        print(f"Error occurred while processing image {name}: {e}")
+        if chunks_saved:
+            try:
+                await delete_chunks_from_database(content_id=content_id)
+            except Exception as cleanup_error:
+                print(f"Cleanup failed for {content_id}: {cleanup_error}")
         return None

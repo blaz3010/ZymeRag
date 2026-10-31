@@ -1,104 +1,96 @@
 import asyncio
-from io import BytesIO
-import re
-import shutil
-import pickle
-from pathlib import Path as SyncPath
-import anyio
-
-
 import uuid
-from Embeddings.Embeddingmaker import Embedder
-from Dbhelper.pdf_db_helper import save_content_to_database
-BASE_DIR=SyncPath("Data").resolve()
-content_dir=BASE_DIR/"Content"
-from Splitter.PdfSplitter import pdf_splitter
-from rank_bm25 import BM25Okapi
-from Embeddings.Embeddingmaker import embedder as embedding_maker
-from langchain_community.vectorstores import FAISS
 
 from langchain_core.documents import Document
-def tokenize(text: str):
-    return re.findall(r"\b\w+\b", text.lower())
 
-def _build_and_save_index_sync(chunks, content_path: SyncPath):
-    vectorstore = FAISS.from_documents(
-        chunks,
-        embedding_maker
-    )
-    vectorstore.save_local(
-        str(content_path)
-    )
-    documents = [
-        chunk.page_content
-        for chunk in chunks
-    ]
-    tokenized_documents = [
-        tokenize(document)
-        for document in documents
-    ]
-    bm25 = BM25Okapi(
-        tokenized_documents
-    )
-    bm25_data = {
-        "documents": documents,
-        "bm25": bm25
-    }
-    bm25_path = content_path / "bm25.pkl"
-    with open(bm25_path, "wb") as f:
-        pickle.dump(
-            bm25_data,
-            f
-        )
+from Dbhelper.document_chunks_db_helper import save_chunks_to_database, delete_chunks_from_database
+from Dbhelper.pdf_db_helper import save_content_to_database
+from Embeddings.Embeddingmaker import embedder as embedding_maker
+from Splitter.PdfSplitter import pdf_splitter
 
-async def ingestText(text: str, name: str):
-    try:
-        id = str(uuid.uuid4())
-        content_path = content_dir / f"{id}"
-        await asyncio.to_thread(content_path.mkdir, parents=True, exist_ok=True)
-        if len(text) > 300:
-            chunks = await asyncio.to_thread(pdf_splitter.split, text)
-        else:
-            chunks = [Document(page_content=text)]
-        await asyncio.to_thread(_build_and_save_index_sync, chunks, content_path)
-        database_saved = await save_content_to_database(name=name, content_id=id, doc_type="txt", chunks=len(chunks))
-        if database_saved:
-            print(f"Text ingested and saved to database with ID: {id}")
-            return id
-        return None
-    except Exception as e:
-        print(f"Error Occured While Ingesting The Text {name} and Error is {e}")
-        return None
-
-
+SPLIT_THRESHOLD_CHARS = 300
 RAW_TEXT_MAX_WORDS = 200
 
 
 def count_words(text: str) -> int:
-    return len([w for w in text.split() if w])
+    return len(text.split())
+
+
+async def build_and_save_index(chunks, content_id=None, feed_id=None) -> bool:
+    documents = [chunk.page_content for chunk in chunks]
+    embeddings = await asyncio.to_thread(embedding_maker.embed_documents, documents)
+
+    success = await save_chunks_to_database(
+        chunks=chunks,
+        embeddings=embeddings,
+        content_id=content_id,
+        feed_id=feed_id,
+    )
+    if not success:
+        raise RuntimeError("Failed to save document embeddings")
+    return True
+
+
+async def _ingest_chunks(chunks, name: str, label: str):
+    content_id = str(uuid.uuid4())
+    chunks_saved = False
+    try:
+        await build_and_save_index(chunks, content_id=content_id, feed_id=None)
+        chunks_saved = True
+
+        database_saved = await save_content_to_database(
+            name=name, content_id=content_id, doc_type="txt", chunks=len(chunks)
+        )
+        if database_saved:
+            print(f"{label} ingested and saved to database with ID: {content_id}")
+            return content_id
+
+        await delete_chunks_from_database(content_id=content_id)
+        return None
+    except Exception as e:
+        print(f"Error occurred while ingesting {label} '{name}': {e}")
+        if chunks_saved:
+            try:
+                await delete_chunks_from_database(content_id=content_id)
+            except Exception as cleanup_error:
+                print(f"Cleanup failed for {content_id}: {cleanup_error}")
+        return None
+
+
+async def ingestText(text: str, name: str):
+    try:
+        text = (text or "").strip()
+        if not text:
+            print("Empty text provided, nothing to ingest")
+            return None
+
+        if len(text) > SPLIT_THRESHOLD_CHARS:
+            chunks = await asyncio.to_thread(pdf_splitter.split, text)
+        else:
+            chunks = [Document(page_content=text)]
+
+        if not chunks:
+            print(f"Splitter produced no chunks for text '{name}'")
+            return None
+
+        return await _ingest_chunks(chunks, name, "Text")
+    except Exception as e:
+        print(f"Error occurred while preparing text '{name}': {e}")
+        return None
 
 
 async def ingest_raw_text(text: str, name: str):
-    """Ingest a short raw text snippet as a single chunk (no splitting)."""
     try:
-        text = text.strip()
+        text = (text or "").strip()
         if not text:
             print("Empty raw text provided, nothing to ingest")
             return None
         if count_words(text) > RAW_TEXT_MAX_WORDS:
             print(f"Raw text exceeds {RAW_TEXT_MAX_WORDS} words, rejected")
             return None
-        id = str(uuid.uuid4())
-        content_path = content_dir / f"{id}"
-        await asyncio.to_thread(content_path.mkdir, parents=True, exist_ok=True)
-        chunks = [Document(page_content=text)]
-        await asyncio.to_thread(_build_and_save_index_sync, chunks, content_path)
-        database_saved = await save_content_to_database(name=name, content_id=id, doc_type="txt", chunks=len(chunks))
-        if database_saved:
-            print(f"Raw text ingested and saved to database with ID: {id}")
-            return id
-        return None
-    except Exception as e:
-        print(f"Error Occured While Ingesting The Raw Text {name} and Error is {e}")
-        return None
 
+        chunks = [Document(page_content=text)]
+        return await _ingest_chunks(chunks, name, "Raw text")
+    except Exception as e:
+        print(f"Error occurred while preparing raw text '{name}': {e}")
+        return None
