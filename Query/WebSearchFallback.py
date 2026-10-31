@@ -191,11 +191,8 @@ class WebSearchFallback:
         return max(scores) >= threshold
 
     # Backwards compat
-    def web_search_fallback(self, question: str) -> Optional[str]:
-        try:
-            return asyncio.get_event_loop().run_until_complete(self.search_and_answer(question))
-        except RuntimeError:
-            return asyncio.run(self.search_and_answer(question))
+    async def web_search_fallback(self, question: str) -> Optional[str]:
+        return await self.search_and_answer(question)
 
     def get_llm(self, api_key: Optional[str] = None):
         return self._get_llm()
@@ -219,6 +216,6 @@ class WebSearchFallback:
             return asyncio.run(self._synthesize(question, context, sources))
 
 
-def web_search_fallback(question: str) -> Optional[str]:
+async def web_search_fallback(question: str) -> Optional[str]:
     inst = WebSearchFallback()
-    return inst.web_search_fallback(question)
+    return await inst.web_search_fallback(question)
