@@ -2,7 +2,7 @@ import logging
 import re
 from typing import Union
 
-from Dbhelper.chunks import get_keyword_chunks_by_ids  # adjust to your helper's module name
+from Dbhelper.document_chunks_db_helper import get_keyword_chunks_by_ids  # adjust to your helper's module name
 
 logger = logging.getLogger(__name__)
 

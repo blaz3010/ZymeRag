@@ -59,7 +59,9 @@ async def read_text_from_image(file) -> str:
 
 async def build_and_save_index(chunks, content_id=None, feed_id=None) -> bool:
     documents = [chunk.page_content for chunk in chunks]
-    embeddings = await asyncio.to_thread(embedding_maker.embed_documents, documents)
+    embeddings = await asyncio.to_thread(
+        embedding_maker.embed_documents, documents
+    )
 
     success = await save_chunks_to_database(
         chunks=chunks,
@@ -69,12 +71,14 @@ async def build_and_save_index(chunks, content_id=None, feed_id=None) -> bool:
     )
     if not success:
         raise RuntimeError("Failed to save document embeddings")
+
     return True
 
 
 async def ingestimage(file, name: str):
     content_id = str(uuid.uuid4())
-    chunks_saved = False
+    chunks_save_started = False
+
     try:
         text = await read_text_from_image(file)
         if not text or not text.strip():
@@ -86,24 +90,37 @@ async def ingestimage(file, name: str):
             print(f"Splitter produced no chunks for image {name}")
             return None
 
-        chunks_saved=await build_and_save_index(chunks, content_id=content_id, feed_id=None)
         database_saved = await save_content_to_database(
             name=name,
             content_id=content_id,
             doc_type="image",
             chunks=len(chunks),
         )
-        if database_saved:
-            print(f"Image ingested and saved to database with ID: {content_id}")
-            return content_id
-        await delete_chunks_from_database(content_id=content_id)
-        return None
+        if not database_saved:
+            raise RuntimeError(
+                f"Failed to save content record for {content_id}; "
+                "chunks were not inserted"
+            )
+
+        # Set before starting because a later batch may fail after earlier
+        # batches have already been inserted.
+        chunks_save_started = True
+        await build_and_save_index(
+            chunks,
+            content_id=content_id,
+            feed_id=None,
+        )
+
+        print(f"Image ingested and saved to database with ID: {content_id}")
+        return content_id
 
     except Exception as e:
         print(f"Error occurred while processing image {name}: {e}")
-        if chunks_saved:
+
+        if chunks_save_started:
             try:
                 await delete_chunks_from_database(content_id=content_id)
             except Exception as cleanup_error:
                 print(f"Cleanup failed for {content_id}: {cleanup_error}")
+
         return None

@@ -7,7 +7,10 @@ from pathlib import Path as SyncPath
 
 import ffmpeg
 
-from Dbhelper.document_chunks_db_helper import save_chunks_to_database, delete_chunks_from_database
+from Dbhelper.document_chunks_db_helper import (
+    save_chunks_to_database,
+    delete_chunks_from_database,
+)
 from Dbhelper.pdf_db_helper import save_content_to_database
 from Embeddings.Embeddingmaker import embedder as embedding_maker
 from Splitter.PdfSplitter import pdf_splitter
@@ -27,7 +30,11 @@ def get_whisper_model():
 
                 device = "cuda" if torch.cuda.is_available() else "cpu"
                 compute_type = "float16" if device == "cuda" else "int8"
-                _whisper_model = WhisperModel("medium", device=device, compute_type=compute_type)
+                _whisper_model = WhisperModel(
+                    "medium",
+                    device=device,
+                    compute_type=compute_type,
+                )
     return _whisper_model
 
 
@@ -35,7 +42,7 @@ def transcribe_audio_file(audio_path: str) -> str:
     model = get_whisper_model()
     segments, _info = model.transcribe(audio_path, beam_size=5)
     texts = [segment.text.strip() for segment in segments]
-    return "\n".join(t for t in texts if t)
+    return "\n".join(text for text in texts if text)
 
 
 def extract_audio_from_video(video_path: str, audio_out_path: str) -> None:
@@ -49,7 +56,9 @@ def extract_audio_from_video(video_path: str, audio_out_path: str) -> None:
         )
     except ffmpeg.Error as e:
         stderr = e.stderr.decode(errors="ignore") if e.stderr else str(e)
-        raise RuntimeError(f"ffmpeg failed to extract audio: {stderr[-500:]}") from e
+        raise RuntimeError(
+            f"ffmpeg failed to extract audio: {stderr[-500:]}"
+        ) from e
 
 
 def _write_temp_file_sync(file_bytes: bytes, suffix: str) -> str:
@@ -65,10 +74,10 @@ def _write_temp_file_sync(file_bytes: bytes, suffix: str) -> str:
 
 
 def _remove_files_sync(*paths: str) -> None:
-    for p in paths:
-        if p and os.path.exists(p):
+    for path in paths:
+        if path and os.path.exists(path):
             try:
-                os.remove(p)
+                os.remove(path)
             except Exception:
                 pass
 
@@ -81,7 +90,11 @@ async def _transcribe(audio_path: str) -> str:
 async def read_text_from_audio(file) -> str:
     audio_bytes = await file.read()
     suffix = SyncPath(getattr(file, "filename", None) or "audio.wav").suffix or ".wav"
-    tmp_path = await asyncio.to_thread(_write_temp_file_sync, audio_bytes, suffix)
+    tmp_path = await asyncio.to_thread(
+        _write_temp_file_sync,
+        audio_bytes,
+        suffix,
+    )
     try:
         return await _transcribe(tmp_path)
     finally:
@@ -91,18 +104,34 @@ async def read_text_from_audio(file) -> str:
 async def read_text_from_video(file) -> str:
     video_bytes = await file.read()
     suffix = SyncPath(getattr(file, "filename", None) or "video.mp4").suffix or ".mp4"
-    tmp_video_path = await asyncio.to_thread(_write_temp_file_sync, video_bytes, suffix)
+    tmp_video_path = await asyncio.to_thread(
+        _write_temp_file_sync,
+        video_bytes,
+        suffix,
+    )
     tmp_audio_path = tmp_video_path + ".wav"
     try:
-        await asyncio.to_thread(extract_audio_from_video, tmp_video_path, tmp_audio_path)
+        await asyncio.to_thread(
+            extract_audio_from_video,
+            tmp_video_path,
+            tmp_audio_path,
+        )
         return await _transcribe(tmp_audio_path)
     finally:
-        await asyncio.to_thread(_remove_files_sync, tmp_video_path, tmp_audio_path)
+        await asyncio.to_thread(
+            _remove_files_sync,
+            tmp_video_path,
+            tmp_audio_path,
+        )
 
 
 async def build_and_save_index(chunks, content_id=None, feed_id=None) -> bool:
     documents = [chunk.page_content for chunk in chunks]
-    embeddings = await asyncio.to_thread(embedding_maker.embed_documents, documents)
+    embeddings = await asyncio.to_thread(
+        embedding_maker.embed_documents,
+        documents,
+    )
+
     success = await save_chunks_to_database(
         chunks=chunks,
         embeddings=embeddings,
@@ -111,6 +140,7 @@ async def build_and_save_index(chunks, content_id=None, feed_id=None) -> bool:
     )
     if not success:
         raise RuntimeError("Failed to save document embeddings")
+
     return True
 
 
@@ -125,21 +155,38 @@ async def _ingest_transcript(text: str, name: str, doc_type: str):
         return None
 
     content_id = str(uuid.uuid4())
-    chunks_saved = False
-    try:
-        await build_and_save_index(chunks, content_id=content_id, feed_id=None)
-        chunks_saved = True
-        database_saved = await save_content_to_database(
-            name=name, content_id=content_id, doc_type=doc_type, chunks=len(chunks)
-        )
-        if database_saved:
-            print(f"{doc_type.capitalize()} ingested and saved to database with ID: {content_id}")
-            return content_id
+    chunks_save_started = False
 
-        await delete_chunks_from_database(content_id=content_id)
-        return None
+    try:
+        database_saved = await save_content_to_database(
+            name=name,
+            content_id=content_id,
+            doc_type=doc_type,
+            chunks=len(chunks),
+        )
+        if not database_saved:
+            raise RuntimeError(
+                f"Failed to save content record for {content_id}; "
+                "chunks were not inserted"
+            )
+
+        # Set before saving because a later batch may fail after earlier
+        # batches have already been inserted.
+        chunks_save_started = True
+        await build_and_save_index(
+            chunks,
+            content_id=content_id,
+            feed_id=None,
+        )
+
+        print(
+            f"{doc_type.capitalize()} ingested and saved to database "
+            f"with ID: {content_id}"
+        )
+        return content_id
+
     except Exception:
-        if chunks_saved:
+        if chunks_save_started:
             try:
                 await delete_chunks_from_database(content_id=content_id)
             except Exception as cleanup_error:

@@ -129,7 +129,6 @@ async def save_chunks_to_database(
                 "p_chunk_index": index,
                 "p_content": chunk.page_content.replace("\x00", ""),
                 "p_embedding": _vector_literal(embedding),
-                # round-trip so odd values (datetime, UUID) become strings
                 "p_metadata": json.loads(
                     json.dumps(chunk.metadata or {}, default=str)
                 ),
@@ -147,8 +146,6 @@ async def save_chunks_to_database(
         })
 
         async with AsyncDB() as s:
-            # Replace semantics: delete + insert in one transaction, so
-            # re-ingestion never duplicates and stale tail chunks go away.
             await s.execute(
                 delete(document_chunks).where(_owner_filter(content_id, feed_id))
             )
