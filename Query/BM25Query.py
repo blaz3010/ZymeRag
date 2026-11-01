@@ -65,6 +65,6 @@ class BM25:
 
     async def get_keyword_chunks(self, query, uuids, top_k=None, as_rows=False):
         rows = await get_keyword_chunks_by_ids(
-            self._build_query(query), uuids, top_k=top_k or self.top_k
+            self.build_or_query(query), uuids, top_k=top_k or self.top_k
         )
         return self._format(rows, as_rows)

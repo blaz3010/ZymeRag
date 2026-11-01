@@ -75,6 +75,7 @@ class SemanticQuery:
         ]
 
     async def get_semantic_chunks(self, query, uuids, top_k=5, as_rows=False):
-        embedding = await self._embed(query)  # whatever _search_many does today
+        embedding = await asyncio.to_thread(self._embed, query)
+        logger.info("embed returned type=%s len=%s", type(embedding), len(embedding))
         rows = await get_semantic_chunks_by_ids(embedding, uuids, top_k=top_k)
         return self._format(rows, as_rows)

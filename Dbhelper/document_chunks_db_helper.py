@@ -6,7 +6,7 @@ from typing import Literal, Optional
 from sqlalchemy import (
     BigInteger, Column, DateTime, Float, Integer, MetaData, String, Table,
     Text, bindparam, cast, delete, func, insert, literal, literal_column,
-    or_,select, text,
+    or_, select, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.exc import SQLAlchemyError
@@ -85,11 +85,13 @@ def _owner_filter(content_id: Optional[str], feed_id: Optional[str]):
         return t.content_id == content_id
     return t.feed_id == feed_id
 
+
 def _owner_in(ids: list[str], column: Optional[OwnerColumn] = None):
     """column=None matches either owner column; each row only has one set."""
     if column is not None:
         return _owner_col(column).in_(ids)
     return or_(t.content_id.in_(ids), t.feed_id.in_(ids))
+
 
 def _clean_ids(ids) -> list[str]:
     return list(dict.fromkeys(i for i in (ids or []) if i))
@@ -236,7 +238,7 @@ async def get_chunks_from_database(
 async def get_semantic_chunks_by_ids(
     query_embedding,
     ids: list[str],
-    column: OwnerColumn,
+    column: Optional[OwnerColumn] = None,   # None = match content_id OR feed_id
     top_k: int = 6,
     iterative_scan: bool = False,
 ) -> list[dict]:
@@ -283,7 +285,7 @@ async def get_semantic_chunks_by_ids(
 async def get_keyword_chunks_by_ids(
     query: str,
     ids: list[str],
-    column: Optional[OwnerColumn] = None,
+    column: Optional[OwnerColumn] = None,   # None = match content_id OR feed_id
     top_k: int = 6,
     websearch: bool = False,
 ) -> list[dict]:
