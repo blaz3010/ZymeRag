@@ -74,22 +74,7 @@ class SemanticQuery:
             for r in rows
         ]
 
-    async def get_semantic_chunks_fromFeed(
-        self,
-        query: str,
-        uuids: list[str],
-        top_k: int = 5,
-        as_rows: bool = False,
-    ):
-        rows = await self._search_many("Feed", query, uuids, top_k)
-        return self._format(rows, as_rows)
-
-    async def get_semantic_chunks_fromContent(
-        self,
-        query: str,
-        uuids: list[str],
-        top_k: int = 5,
-        as_rows: bool = False,
-    ):
-        rows = await self._search_many("Content", query, uuids, top_k)
+    async def get_semantic_chunks(self, query, uuids, top_k=5, as_rows=False):
+        embedding = await self._embed(query)  # whatever _search_many does today
+        rows = await get_semantic_chunks_by_ids(embedding, uuids, top_k=top_k)
         return self._format(rows, as_rows)

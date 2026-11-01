@@ -9,10 +9,11 @@ from Query.WebSearchFallback import WebSearchFallback
 
 logger = logging.getLogger(__name__)
 
-CANDIDATES = 10
+KEYWORD_CANDIDATES = 10
+SEMANTIC_CANDIDATES = 6
+FINAL_TOP_K = 12
 RRF_K = 60
-
-bm25 = BM25(top_k=CANDIDATES)
+bm25 = BM25(top_k=KEYWORD_CANDIDATES)
 semantic = SemanticQuery()
 web_fallback = WebSearchFallback()
 
@@ -48,29 +49,20 @@ def _to_hit(row: dict) -> tuple[Document, float]:
 
 
 async def get_all_chunks(
-    query: str, ids: list[str], top_k: int = 6
+    query: str, ids: list[str], top_k: int = FINAL_TOP_K
 ) -> list[tuple[Document, float]]:
     ids = list(dict.fromkeys(i for i in ids if i))
     if not query.strip() or not ids:
         return []
-    (
-        kw_content, sem_content, kw_feed, sem_feed,
-    ) = await asyncio.gather(
-        bm25.get_keyword_chunks_From_Content(query, ids, as_rows=True),
-        semantic.get_semantic_chunks_fromContent(
-            query, ids, top_k=CANDIDATES, as_rows=True
+
+    semantic_rows, keyword_rows = await asyncio.gather(
+        semantic.get_semantic_chunks(
+            query, ids, top_k=SEMANTIC_CANDIDATES, as_rows=True
         ),
-        bm25.get_keyword_chunks_From_Feed(query, ids, as_rows=True),
-        semantic.get_semantic_chunks_fromFeed(
-            query, ids, top_k=CANDIDATES, as_rows=True
+        bm25.get_keyword_chunks(
+            query, ids, top_k=KEYWORD_CANDIDATES, as_rows=True
         ),
     )
-    semantic_rows = sorted(
-        sem_content + sem_feed, key=lambda r: r["similarity"], reverse=True
-    )[:CANDIDATES]
-    keyword_rows = sorted(
-        kw_content + kw_feed, key=lambda r: r["rank"], reverse=True
-    )[:CANDIDATES]
 
     return [_to_hit(r) for r in _rrf(semantic_rows, keyword_rows, top_k)]
 

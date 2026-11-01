@@ -6,7 +6,7 @@ from typing import Literal, Optional
 from sqlalchemy import (
     BigInteger, Column, DateTime, Float, Integer, MetaData, String, Table,
     Text, bindparam, cast, delete, func, insert, literal, literal_column,
-    select, text,
+    or_,select, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.exc import SQLAlchemyError
@@ -85,6 +85,11 @@ def _owner_filter(content_id: Optional[str], feed_id: Optional[str]):
         return t.content_id == content_id
     return t.feed_id == feed_id
 
+def _owner_in(ids: list[str], column: Optional[OwnerColumn] = None):
+    """column=None matches either owner column; each row only has one set."""
+    if column is not None:
+        return _owner_col(column).in_(ids)
+    return or_(t.content_id.in_(ids), t.feed_id.in_(ids))
 
 def _clean_ids(ids) -> list[str]:
     return list(dict.fromkeys(i for i in (ids or []) if i))
@@ -250,7 +255,7 @@ async def get_semantic_chunks_by_ids(
 
         stmt = (
             select(*_RESULT_COLUMNS, (1 - distance).label("similarity"))
-            .where(_owner_col(column).in_(ids))
+            .where(_owner_in(ids, column))
             .where(t.embedding.is_not(None))
             .order_by(distance, t.id)
             .limit(top_k)
@@ -278,7 +283,7 @@ async def get_semantic_chunks_by_ids(
 async def get_keyword_chunks_by_ids(
     query: str,
     ids: list[str],
-    column: OwnerColumn,
+    column: Optional[OwnerColumn] = None,
     top_k: int = 6,
     websearch: bool = False,
 ) -> list[dict]:
@@ -301,7 +306,7 @@ async def get_keyword_chunks_by_ids(
 
         stmt = (
             select(*_RESULT_COLUMNS, rank.label("rank"))
-            .where(_owner_col(column).in_(ids))
+            .where(_owner_in(ids, column))
             .where(t.search_vector.op("@@", is_comparison=True)(tsq))
             .order_by(rank.desc(), t.id)
             .limit(top_k)

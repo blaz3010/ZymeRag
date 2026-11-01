@@ -63,14 +63,8 @@ class BM25:
             return rows
         return [(r["content"], float(r["rank"])) for r in rows]
 
-    async def get_keyword_chunks_From_Feed(
-        self, query: str, uuids: list[str], as_rows: bool = False
-    ):
-        rows = await self._search_many("Feed", query, uuids, self.top_k)
-        return self._format(rows, as_rows)
-
-    async def get_keyword_chunks_From_Content(
-        self, query: str, uuids: list[str], as_rows: bool = False
-    ):
-        rows = await self._search_many("Content", query, uuids, self.top_k)
+    async def get_keyword_chunks(self, query, uuids, top_k=None, as_rows=False):
+        rows = await get_keyword_chunks_by_ids(
+            self._build_query(query), uuids, top_k=top_k or self.top_k
+        )
         return self._format(rows, as_rows)

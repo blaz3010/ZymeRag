@@ -57,8 +57,9 @@ async def read_text_from_pdf(file) -> str:
     print(f"Reading PDF file: {file.filename}")
     pdf_bytes = await file.read()
     result = await asyncio.to_thread(_convert_pdf_sync_fitz, pdf_bytes)
-    if result is None or not result.strip():
-        return await asyncio.to_thread(_convert_pdf_sync, pdf_bytes, file.filename)
+    if result and result.strip():
+        return result
+    return await asyncio.to_thread(_convert_pdf_sync, pdf_bytes, file.filename)
 
 
 async def build_and_save_index(chunks, content_id=None, feed_id=None) -> bool:
