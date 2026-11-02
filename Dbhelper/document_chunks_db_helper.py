@@ -22,10 +22,7 @@ BATCH_SIZE = 200
 OwnerColumn = Literal["content_id", "feed_id"]
 
 
-# ---------- table definition ----------
-
 class Vector(UserDefinedType):
-    """extensions.vector, used for the column type and as a CAST target."""
     cache_ok = True
 
     def __init__(self, dim: Optional[int] = None):
@@ -48,11 +45,11 @@ document_chunks = Table(
     Column("embedding", Vector(EMBEDDING_DIM)),
     Column("metadata", JSONB, nullable=False),
     Column("created_at", DateTime(timezone=True)),
-    Column("search_vector", TSVECTOR),  # generated column, never written
+    Column("search_vector", TSVECTOR), 
 )
 t = document_chunks.c
 
-# `id` is exposed as `chunk_id`, which is the key the RRF merge uses.
+
 _RESULT_COLUMNS = (
     t.id.label("chunk_id"),
     t.content_id,
@@ -62,8 +59,6 @@ _RESULT_COLUMNS = (
     t["metadata"],
 )
 
-
-# ---------- helpers ----------
 
 def _valid_owner(content_id: Optional[str], feed_id: Optional[str]) -> bool:
     if (content_id is None) == (feed_id is None):
@@ -79,15 +74,12 @@ def _owner_col(column: OwnerColumn):
 
 
 def _owner_filter(content_id: Optional[str], feed_id: Optional[str]):
-    # Exactly one is set, so filter on just that column and let the
-    # planner use its index.
     if content_id is not None:
         return t.content_id == content_id
     return t.feed_id == feed_id
 
 
 def _owner_in(ids: list[str], column: Optional[OwnerColumn] = None):
-    """column=None matches either owner column; each row only has one set."""
     if column is not None:
         return _owner_col(column).in_(ids)
     return or_(t.content_id.in_(ids), t.feed_id.in_(ids))
@@ -113,7 +105,7 @@ def _vector_param(embedding):
     return cast(literal(_vector_literal(embedding), Text), Vector())
 
 
-# ---------- write ----------
+
 
 async def save_chunks_to_database(
     chunks,
@@ -206,7 +198,7 @@ async def delete_chunks_from_database(
         return False
 
 
-# ---------- read: by id ----------
+
 
 async def get_chunks_from_database(
     content_id: Optional[str] = None,
@@ -233,7 +225,6 @@ async def get_chunks_from_database(
         return []
 
 
-# ---------- read: search over many ids (the core implementations) ----------
 
 async def get_semantic_chunks_by_ids(
     query_embedding,
@@ -263,7 +254,7 @@ async def get_semantic_chunks_by_ids(
             .limit(top_k)
         )
         async with AsyncDB() as s:
-            if iterative_scan:  # pgvector >= 0.8 with an HNSW index only
+            if iterative_scan:
                 await s.execute(
                     text("SET LOCAL hnsw.iterative_scan = relaxed_order")
                 )
@@ -289,19 +280,11 @@ async def get_keyword_chunks_by_ids(
     top_k: int = 6,
     websearch: bool = False,
 ) -> list[dict]:
-    """
-    websearch=False: `query` is a to_tsquery expression (e.g. "a | b | c"),
-                     which is what the BM25 class's OR-query builder produces.
-    websearch=True:  `query` is raw user text for websearch_to_tsquery,
-                     which ANDs the terms.
-    """
     ids = _clean_ids(ids)
     if not query or not query.strip() or not ids or top_k <= 0:
         return []
 
     try:
-        # regconfig is a literal: a bound string would reach the driver
-        # as text, not as a regconfig.
         ts_func = func.websearch_to_tsquery if websearch else func.to_tsquery
         tsq = ts_func(literal_column("'english'::regconfig"), query)
         rank = func.ts_rank_cd(t.search_vector, tsq)
@@ -324,8 +307,6 @@ async def get_keyword_chunks_by_ids(
         logger.exception("Unexpected error during keyword chunk retrieval")
         return []
 
-
-# ---------- read: search within one owner (thin wrappers) ----------
 
 async def get_semantic_based_chunks(
     query_embedding: list[float],
