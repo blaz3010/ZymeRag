@@ -8,12 +8,14 @@ from Backend.Controller.query_controller import (
     clear_query_history_endpoint,
     get_user_queryable_sources,
     get_all_queryable_sources,
+    web_search_query_endpoint,
 )
 from Backend.Middleware.auth import auth_middleware
 
 query_router = APIRouter()
 query_router.add_api_route("/query", query_endpoint, methods=["GET"])
 query_router.add_api_route("/query_fullcontext", query_endpoint_fullcontext, methods=["GET"])
+query_router.add_api_route("/web_search", web_search_query_endpoint, methods=["GET"])
 query_router.add_api_route("/user_query", user_query_endpoint, methods=["POST"], dependencies=[Depends(auth_middleware)])
 query_router.add_api_route("/my_queryable_sources", get_user_queryable_sources, methods=["GET"], dependencies=[Depends(auth_middleware)])
 query_router.add_api_route("/all_queryable_sources", get_all_queryable_sources, methods=["GET"], dependencies=[Depends(auth_middleware)])

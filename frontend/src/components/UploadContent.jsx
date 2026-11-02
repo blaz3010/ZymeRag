@@ -9,7 +9,8 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  FileSpreadsheet
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
@@ -150,6 +151,47 @@ export default function UploadContent({ onUploadSuccess }) {
       {/* 2-Column Grid of Cards */}
       <div className="ingestion-grid">
         
+        {/* Card 6: Website URLs (Feeds) */}
+        <div className="ingestion-card span-2-cols">
+          <div className="card-top-header">
+            <div className="icon-wrapper icon-emerald">
+              <Globe size={22} />
+            </div>
+            <div>
+              <h3 className="card-heading">Website Ingestion</h3>
+              <p className="card-subtext">Crawl a public URL, split it into chunks and index it as a feed</p>
+            </div>
+          </div>
+
+          <div className="web-ingest-box">
+            <input
+              type="url"
+              className="custom-textarea url-input"
+              placeholder="https://example.com/article"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+              disabled={loading.web}
+            />
+            <div className="web-ingest-footer">
+              <span className="text-count-hint">One URL at a time</span>
+              <button
+                className="btn-submit-web btn-emerald"
+                disabled={!websiteUrl.trim() || loading.web}
+                onClick={handleWebsiteSubmit}
+              >
+                {loading.web ? (
+                  <span className="btn-spinner-content">
+                    <Loader2 className="animate-spin" size={14} />
+                    <span>Crawling...</span>
+                  </span>
+                ) : (
+                  '+ Ingest Website'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Card 1: PDF & Word Documents */}
         <div 
           className={`ingestion-card ${dragOverCard === 'doc' ? 'drag-over' : ''}`}
@@ -199,6 +241,58 @@ export default function UploadContent({ onUploadSuccess }) {
                   Drop PDF / Word file or <span className="highlight-browse">browse</span>
                 </div>
                 <span className="dropzone-sub-text">Supported: .pdf, .docx, .txt (up to 15MB)</span>
+              </>
+            )}
+          </label>
+        </div>
+
+        {/* Card 4: CSV Files */}
+        <div 
+          className={`ingestion-card ${dragOverCard === 'csv' ? 'drag-over' : ''}`}
+          onDragOver={(e) => { e.preventDefault(); setDragOverCard('csv'); }}
+          onDragLeave={() => setDragOverCard(null)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOverCard(null);
+            if (e.dataTransfer.files[0]) {
+              const file = e.dataTransfer.files[0];
+              handleFileUpload(file, '/upload/upload_csv', 'csv');
+            }
+          }}
+        >
+          <div className="card-top-header">
+            <div className="icon-wrapper icon-green">
+              <FileSpreadsheet size={22} />
+            </div>
+            <div>
+              <h3 className="card-heading">CSV Files</h3>
+              <p className="card-subtext">Tabular data from spreadsheets</p>
+            </div>
+          </div>
+
+          <label className="custom-dropzone">
+            <input 
+              type="file" 
+              accept=".csv"
+              onChange={(e) => {
+                if (e.target.files[0]) {
+                  const file = e.target.files[0];
+                  handleFileUpload(file, '/upload/upload_csv', 'csv');
+                }
+              }}
+            />
+            {loading.csv ? (
+              <div className="loading-spinner-box">
+                <Loader2 className="animate-spin text-green-500" size={28} />
+                <span className="uploading-text">Generating Embeddings...</span>
+              </div>
+            ) : (
+              <>
+                <Upload className="dropzone-svg-icon text-green-500" size={28} />
+                <div className="dropzone-main-text">
+                  Drop CSV file or <span className="highlight-browse">browse</span>
+                </div>
+                <div className="dropzone-sub-text">.CSV files up to 15MB</div>
               </>
             )}
           </label>
@@ -354,49 +448,10 @@ export default function UploadContent({ onUploadSuccess }) {
           </label>
         </div>
 
-        {/* Card 5: Website URLs (Feeds) */}
-        <div className="ingestion-card span-2-cols">
-          <div className="card-top-header">
-            <div className="icon-wrapper icon-emerald">
-              <Globe size={22} />
-            </div>
-            <div>
-              <h3 className="card-heading">Website Ingestion</h3>
-              <p className="card-subtext">Crawl a public URL, split it into chunks and index it as a feed</p>
-            </div>
-          </div>
+      
 
-          <div className="web-ingest-box">
-            <input
-              type="url"
-              className="custom-textarea url-input"
-              placeholder="https://example.com/article"
-              value={websiteUrl}
-              onChange={(e) => setWebsiteUrl(e.target.value)}
-              disabled={loading.web}
-            />
-            <div className="web-ingest-footer">
-              <span className="text-count-hint">One URL at a time</span>
-              <button
-                className="btn-submit-web btn-emerald"
-                disabled={!websiteUrl.trim() || loading.web}
-                onClick={handleWebsiteSubmit}
-              >
-                {loading.web ? (
-                  <span className="btn-spinner-content">
-                    <Loader2 className="animate-spin" size={14} />
-                    <span>Crawling...</span>
-                  </span>
-                ) : (
-                  '+ Ingest Website'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 6: Raw Text Snippets */}
-        <div className="ingestion-card span-2-cols">
+        {/* Card 5: Raw Text Snippets */}
+        <div className="ingestion-card">
           <div className="card-top-header">
             <div className="icon-wrapper icon-blue">
               <FileText size={22} />

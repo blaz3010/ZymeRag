@@ -662,7 +662,11 @@ body {
 
 .type-pdf { background: #fee2e2; color: #991b1b; }
 .type-docx { background: #dbeafe; color: #1e40af; }
+.type-txt { background: #f1f5f9; color: #475569; }
+.type-text { background: #f1f5f9; color: #475569; }
+.type-csv { background: #dcfce7; color: #166534; }
 .type-url { background: #f3e8ff; color: #6b21a8; }
+.type-website { background: #f3e8ff; color: #6b21a8; }
 .type-image { background: #fef3c7; color: #92400e; }
 .type-audio { background: #e0e7ff; color: #3730a3; }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, ExternalLink, Info, Trash2, AlertCircle, User, Globe, Loader, FileText, Loader2, Copy, Check, X } from 'lucide-react';
+import { Search, Plus, ExternalLink, Info, Trash2, AlertCircle, User, Globe, Loader, FileText, Loader2, Copy, Check, X, FileSpreadsheet } from 'lucide-react';
 import SourceMetadataModal from './SourceMetadataModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 
@@ -277,8 +277,10 @@ export default function IngestedSources({ onNavigateToAdd }) {
                       </span>
                     </td>
                     <td>
-                      <span className={`type-tag type-${item.type.toLowerCase()}`}>
-                        {item.type}
+                      <span className={`type-tag type-${(item.type || '').toLowerCase()}`}>
+                        {(item.type || '').toLowerCase() === 'csv' && <FileSpreadsheet size={12} />}
+                        {(item.type || '').toLowerCase() !== 'csv' && <FileText size={12} />}
+                        <span>{item.type || 'Document'}</span>
                       </span>
                     </td>
                     <td>

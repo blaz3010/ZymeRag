@@ -67,7 +67,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
   const [chatMessages, setChatMessages] = useState([]);
   const [expandedChunks, setExpandedChunks] = useState({});
   const [copiedId, setCopiedId] = useState(null);
-  const [retrievalMode, setRetrievalMode] = useState('hybrid'); // 'hybrid' | 'fullcontext'
+  const [retrievalMode, setRetrievalMode] = useState('hybrid'); // 'hybrid' | 'fullcontext' | 'websearch'
 
   // Query History & Drawer
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
@@ -342,6 +342,38 @@ export default function QueryPlayground({ onNavigateToIngest }) {
     setQuerying(true);
 
     try {
+      if (retrievalMode === 'websearch') {
+        const res = await fetch(`${API_BASE}/query/web_search?question=${encodeURIComponent(question)}&max_results=5`, {
+          method: 'GET',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || 'Web search failed');
+        }
+        const data = await res.json();
+        const chunks = data.chunks || [];
+        const answerText = chunks.length
+          ? `Web Search Results for "${question}":\n\n${chunks.map((c, i) => `[${i + 1}] ${c.content}\nSource: ${c.url || 'N/A'}`).join('\n\n')}`
+          : 'No web results found.';
+        const userMsg = { id: Date.now(), role: 'user', text: question };
+        const assistantMsg = {
+          id: Date.now() + 1,
+          role: 'assistant',
+          text: answerText,
+          chunks: chunks.map((c, idx) => ({
+            snippet: c.content.substring(0, 320) + (c.content.length > 320 ? '...' : ''),
+            full_snippet: c.content.substring(0, 1200),
+            score: null,
+            source: c.url || 'Web',
+            metadata: { url: c.url }
+          })),
+          retrievalMode
+        };
+        setMessages(prev => [...prev, userMsg, assistantMsg]);
+        return;
+      }
+
       const endpoint = retrievalMode === 'fullcontext' ? '/query/query_fullcontext' : '/query/user_query';
       const isFullContext = retrievalMode === 'fullcontext';
       let res;
@@ -818,7 +850,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                   <h2 className="qp-welcome-title">Knowledge Retrieval Lab</h2>
                   <p className="qp-welcome-desc">
                     Select sources on the left and ask questions to evaluate your RAG pipeline's accuracy and retrieval quality.
-                    Currently using <strong>{retrievalMode === 'fullcontext' ? 'Full Context' : 'Hybrid RAG'}</strong> mode.
+                    Currently using <strong>{retrievalMode === 'fullcontext' ? 'Full Context' : retrievalMode === 'websearch' ? 'Web Search' : 'Hybrid RAG'}</strong> mode.
                   </p>
 
                 {/* Suggestion Cards */}
@@ -881,8 +913,8 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                             <span className="qp-msg-ai-name">Zyme RAG</span>
                             {msg.retrievalMode && (
                               <span className="qp-latency" title="Retrieval mode">
-                                {msg.retrievalMode === 'fullcontext' ? <BookOpen size={10} /> : <Sparkles size={10} />}
-                                {msg.retrievalMode === 'fullcontext' ? 'Full' : 'Hybrid'}
+                                {msg.retrievalMode === 'fullcontext' ? <BookOpen size={10} /> : msg.retrievalMode === 'websearch' ? <Globe size={10} /> : <Sparkles size={10} />}
+                                {msg.retrievalMode === 'fullcontext' ? 'Full' : msg.retrievalMode === 'websearch' ? 'Web' : 'Hybrid'}
                               </span>
                             )}
                             {msg.latencyMs && (
@@ -993,7 +1025,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                     </div>
                   <span className="qp-thinking-text">
                     Retrieving from {selectedIds.size} source{selectedIds.size === 1 ? '' : 's'} and synthesizing…
-                    {retrievalMode === 'fullcontext' ? ' (Full Context)' : ' (Hybrid RAG)'}
+                    {retrievalMode === 'fullcontext' ? ' (Full Context)' : retrievalMode === 'websearch' ? ' (Web Search)' : ' (Hybrid RAG)'}
                   </span>
                   </div>
                 )}
@@ -1050,15 +1082,35 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                   <BookOpen size={12} />
                   <span>Full Context</span>
                 </button>
+                <button
+                  onClick={() => setRetrievalMode('websearch')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '4px 10px',
+                    borderRadius: '4px',
+                    border: 'none',
+                    background: retrievalMode === 'websearch' ? '#f59e0b' : 'transparent',
+                    color: retrievalMode === 'websearch' ? '#000' : '#a1a1aa',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <Globe size={12} />
+                  <span>Web Search</span>
+                </button>
               </div>
             </div>
             <div className="qp-input-context-bar">
               <Layers size={12} />
-              {selectedIds.size === 0 ? (
+              {selectedIds.size === 0 && retrievalMode !== 'websearch' ? (
                 <span className="qp-input-ctx-warn">Select documents to enable querying</span>
               ) : (
                 <span className="qp-input-ctx-ok">
-                  {selectedIds.size} source{selectedIds.size === 1 ? '' : 's'} · {selectedChunksCount} chunks in context
+                  {retrievalMode === 'websearch' ? 'Searching the web (no local docs required)' : `${selectedIds.size} source${selectedIds.size === 1 ? '' : 's'} · ${selectedChunksCount} chunks in context`}
                 </span>
               )}
             </div>
@@ -1092,7 +1144,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                   querying || selectedIds.size === 0 || !question.trim() ? 'disabled' : ''
                 }`}
                 onClick={() => handleSendQuery()}
-                disabled={querying || selectedIds.size === 0 || !question.trim()}
+                disabled={querying || (retrievalMode !== 'websearch' && selectedIds.size === 0) || !question.trim()}
               >
                 {querying ? (
                   <Loader2 size={18} className="qp-spin" />

@@ -21,6 +21,7 @@ from Dbhelper.query_db_helper import (
     delete_user_query,
     clear_user_query_history,
 )
+from Query.WebSearchFallback import web_search_fallback
 
 class QueryRequest(BaseModel):
     question: str
@@ -241,4 +242,15 @@ async def get_all_queryable_sources(user_id: str = Depends(auth_middleware)):
         return {"sources": sources}
     except Exception as e:
         logger.exception("[get_all_queryable_sources] Failed to fetch all sources: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def web_search_query_endpoint(question: str = Query(...), max_results: int = Query(5)):
+    if not question or not question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty")
+    try:
+        chunks = await web_search_fallback(question.strip(), max_results=max_results)
+        return {"question": question, "chunks": chunks}
+    except Exception as e:
+        logger.exception("[web_search_query_endpoint] Failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

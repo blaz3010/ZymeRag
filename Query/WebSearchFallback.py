@@ -73,3 +73,33 @@ async def web_search_fallback(question: str, max_results: int = 5) -> List[Dict[
     if chunks is None:
         chunks = await fallback2(question, max_results)
     return chunks or []
+
+class WebSearchFallback:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def search_and_answer(self, question: str, provider: str = "both", max_results: int = 5):
+        chunks = await web_search_fallback(question, max_results=max_results)
+        if not chunks:
+            return None
+        context = "\n\n".join(c.get("content", "") for c in chunks)
+        sources = [c.get("url", "") for c in chunks if c.get("url")]
+        return f"Web Search Result (Fallback):\n\n{context}\n\nSources:\n" + "\n".join(f"- {s}" for s in sources)
+
+    async def evaluate_and_fallback(self, query: str, kb_chunks=None, threshold: float = 0.5, provider: str = "both", max_results: int = 5):
+        if kb_chunks:
+            scores = []
+            for c in kb_chunks:
+                if isinstance(c, (list, tuple)) and len(c) >= 2 and isinstance(c[1], (int, float)):
+                    scores.append(c[1])
+            if scores and max(scores) >= threshold:
+                return {"source": "kb", "is_fallback": False, "chunks": kb_chunks, "answer": None}
+        ans = await self.search_and_answer(query, provider=provider, max_results=max_results)
+        return {"source": "web_fallback", "is_fallback": True, "chunks": [], "answer": ans}
+
+    def web_search_fallback(self, question: str, max_results: int = 5):
+        import asyncio
+        try:
+            return asyncio.get_event_loop().run_until_complete(web_search_fallback(question, max_results))
+        except RuntimeError:
+            return asyncio.run(web_search_fallback(question, max_results))
