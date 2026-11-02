@@ -24,10 +24,12 @@ async def get_all_sources(user_id: str = Depends(auth_middleware)):
         raise HTTPException(status_code=500, detail=str(e))
 
 async def show_all_chunks(
-    content_id: str = Query(...),
+    content_id: str = Query(None),
     feed_id: str = Query(None)
 ):
     try:
+        if not content_id and not feed_id:
+            raise HTTPException(status_code=400, detail="content_id or feed_id required")
         chunks = await get_chunks_from_database(
             content_id=content_id,
             feed_id=feed_id
@@ -37,16 +39,18 @@ async def show_all_chunks(
             return {"chunks": ""}
 
         contents = [
-            chunk["page_content"]
+            chunk.get("page_content") or chunk.get("content") or ""
             for chunk in chunks
-            if chunk.get("page_content") and chunk["page_content"].strip()
         ]
+        contents = [str(c).strip() for c in contents if str(c).strip()]
 
         return {
             "chunks": "\n\n".join(contents),
             "total_chunks": len(contents)
         }
 
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("Error retrieving document chunks")
         raise HTTPException(

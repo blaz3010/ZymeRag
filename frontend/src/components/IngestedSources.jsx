@@ -79,11 +79,15 @@ export default function IngestedSources({ onNavigateToAdd }) {
   }, [viewMode]);
 
   // Fetch all chunks for a specific source via the /sources/show_chunks endpoint
-  const fetchChunks = useCallback(async (uuid) => {
+  const fetchChunks = useCallback(async (uuid, type) => {
     setChunksLoading(true);
     setChunksText('');
     try {
-      const res = await fetch(`${API_BASE}/sources/show_chunks?uuid=${encodeURIComponent(uuid)}`, {
+      const isFeed = (type || '').toLowerCase() === 'website' || (type || '').toLowerCase() === 'feed';
+      const url = isFeed
+        ? `${API_BASE}/sources/show_chunks?feed_id=${encodeURIComponent(uuid)}`
+        : `${API_BASE}/sources/show_chunks?content_id=${encodeURIComponent(uuid)}`;
+      const res = await fetch(url, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
@@ -308,10 +312,10 @@ export default function IngestedSources({ onNavigateToAdd }) {
                         <button 
                           className="action-pill-btn inspect-pill" 
                           title="View Document Chunks"
-                          onClick={() => {
-                            setChunksSource(item);
-                            fetchChunks(item.id);
-                          }}
+                            onClick={() => {
+                              setChunksSource(item);
+                              fetchChunks(item.id, item.type);
+                            }}
                         >
                           <FileText size={13} />
                           <span>View Chunks</span>
