@@ -20,7 +20,7 @@ torch._dynamo.config.suppress_errors = True
 print("PyTorch:", torch.__version__)
 print("CUDA available:", torch.cuda.is_available())
 print("CUDA:", torch.version.cuda)
-
+pdf_semaphore=asyncio.Semaphore(4)
 try:
     from docling.document_converter import DocumentConverter, DocumentStream
 
@@ -85,7 +85,8 @@ async def ingest_pdf(file, name: str):
     chunks_save_started = False
 
     try:
-        markdown = await read_text_from_pdf(file)
+        async with pdf_semaphore:
+            markdown = await read_text_from_pdf(file)
         if not markdown or not markdown.strip():
             print(f"No extractable text in {file.filename} (scanned PDF? try OCR)")
             return None

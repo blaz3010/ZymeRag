@@ -13,7 +13,7 @@ from Splitter.PdfSplitter import pdf_splitter
 
 SPLIT_THRESHOLD_CHARS = 300
 RAW_TEXT_MAX_WORDS = 200
-
+text_semaphore = asyncio.Semaphore(5)
 
 def count_words(text: str) -> int:
     return len(text.split())
@@ -80,10 +80,11 @@ async def _ingest_chunks(chunks, name: str, label: str):
 
 async def ingestText(text: str, name: str):
     try:
-        text = (text or "").strip()
-        if not text:
-            print("Empty text provided, nothing to ingest")
-            return None
+        async with text_semaphore:
+            text = (text or "").strip()
+            if not text:
+                print("Empty text provided, nothing to ingest")
+                return None
 
         if len(text) > SPLIT_THRESHOLD_CHARS:
             chunks = await asyncio.to_thread(pdf_splitter.split, text)

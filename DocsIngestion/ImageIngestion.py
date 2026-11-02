@@ -14,7 +14,7 @@ from Embeddings.Embeddingmaker import embedder as embedding_maker
 from Splitter.PdfSplitter import pdf_splitter
 
 _ocr_engine = None
-
+image_semaphore = asyncio.Semaphore(2)
 
 def get_ocr_engine():
     global _ocr_engine
@@ -80,7 +80,8 @@ async def ingestimage(file, name: str):
     chunks_save_started = False
 
     try:
-        text = await read_text_from_image(file)
+        async with image_semaphore:
+            text = await read_text_from_image(file)
         if not text or not text.strip():
             print(f"No text detected in image {name}")
             return None
