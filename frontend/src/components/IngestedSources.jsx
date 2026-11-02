@@ -143,8 +143,8 @@ export default function IngestedSources({ onNavigateToAdd }) {
 
   const getTargetUrl = (item) => {
     if (item.url) return item.url;
-    if (item.name.startsWith('http://') || item.name.startsWith('https://')) return item.name;
-    return 'https://github.com/armanphaugat/ZymeRag';
+    if (item.name && (item.name.startsWith('http://') || item.name.startsWith('https://'))) return item.name;
+    return null;
   };
 
   return (
@@ -264,15 +264,23 @@ export default function IngestedSources({ onNavigateToAdd }) {
                     <td>
                       <div className="source-title-cell">
                         <span className="source-title-text">{item.name}</span>
-                        <a 
-                          href={targetUrl} 
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="link-external-icon"
-                          title={`Open ${item.name} in new tab`}
-                        >
-                          <ExternalLink size={13} />
-                        </a>
+                        {(() => {
+                          const targetUrl = getTargetUrl(item);
+                          if (targetUrl) {
+                            return (
+                              <a 
+                                href={targetUrl} 
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="link-external-icon"
+                                title={`Open ${item.name} in new tab`}
+                              >
+                                <ExternalLink size={13} />
+                              </a>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </td>
                     <td>
