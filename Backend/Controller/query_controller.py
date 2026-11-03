@@ -250,7 +250,15 @@ async def web_search_query_endpoint(question: str = Query(...), max_results: int
         raise HTTPException(status_code=400, detail="Question cannot be empty")
     try:
         chunks = await web_search_fallback(question.strip(), max_results=max_results)
-        return {"question": question, "chunks": chunks}
+        if not chunks:
+            return {"question": question, "chunks": [], "answer": "No web results found."}
+        context = "\n\n".join(c.get("content", "") for c in chunks if c.get("content"))
+        try:
+            answer = await generate_answer(question.strip(), context)
+        except Exception as e:
+            logger.exception("[web_search_query_endpoint] LLM failed: %s", e)
+            answer = "\n\n".join(f"[{i+1}] {c.get('content')}\nSource: {c.get('url')}" for i, c in enumerate(chunks))
+        return {"question": question, "chunks": chunks, "answer": answer}
     except Exception as e:
         logger.exception("[web_search_query_endpoint] Failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
