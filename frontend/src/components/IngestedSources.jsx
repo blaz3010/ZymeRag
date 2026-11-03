@@ -83,7 +83,8 @@ export default function IngestedSources({ onNavigateToAdd }) {
     setChunksLoading(true);
     setChunksText('');
     try {
-      const isFeed = (type || '').toLowerCase() === 'website' || (type || '').toLowerCase() === 'feed';
+      const t = (type || '').toLowerCase();
+      const isFeed = t === 'website' || t === 'feed' || t === 'url';
       const url = isFeed
         ? `${API_BASE}/sources/show_chunks?feed_id=${encodeURIComponent(uuid)}`
         : `${API_BASE}/sources/show_chunks?content_id=${encodeURIComponent(uuid)}`;
@@ -257,30 +258,23 @@ export default function IngestedSources({ onNavigateToAdd }) {
               </tr>
             ) : (
               filteredSources.map((item) => {
-                const targetUrl = getTargetUrl(item);
                 const isMine = item.is_mine || viewMode === 'mine';
                 return (
                   <tr key={item.id} className="table-row-item">
-                    <td>
+                                        <td>
                       <div className="source-title-cell">
                         <span className="source-title-text">{item.name}</span>
-                        {(() => {
-                          const targetUrl = getTargetUrl(item);
-                          if (targetUrl) {
-                            return (
-                              <a 
-                                href={targetUrl} 
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="link-external-icon"
-                                title={`Open ${item.name} in new tab`}
-                              >
-                                <ExternalLink size={13} />
-                              </a>
-                            );
-                          }
-                          return null;
-                        })()}
+                        {getTargetUrl(item) && (
+                          <a 
+                            href={getTargetUrl(item)} 
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="link-external-icon"
+                            title={`Open ${item.name} in new tab`}
+                          >
+                            <ExternalLink size={13} />
+                          </a>
+                        )}
                       </div>
                     </td>
                     <td>
@@ -289,9 +283,10 @@ export default function IngestedSources({ onNavigateToAdd }) {
                       </span>
                     </td>
                     <td>
-                      <span className={`type-tag type-${(item.type || '').toLowerCase()}`}>
+                      <span className={`type-tag type-${(item.type || '').toLowerCase() === 'url' ? 'website' : (item.type || '').toLowerCase()}`}>
                         {(item.type || '').toLowerCase() === 'csv' && <FileSpreadsheet size={12} />}
-                        {(item.type || '').toLowerCase() !== 'csv' && <FileText size={12} />}
+                        {((item.type || '').toLowerCase() === 'url' || (item.type || '').toLowerCase() === 'website' || (item.type || '').toLowerCase() === 'feed') && <Globe size={12} />}
+                        {(item.type || '').toLowerCase() !== 'csv' && (item.type || '').toLowerCase() !== 'url' && (item.type || '').toLowerCase() !== 'website' && (item.type || '').toLowerCase() !== 'feed' && <FileText size={12} />}
                         <span>{item.type || 'Document'}</span>
                       </span>
                     </td>

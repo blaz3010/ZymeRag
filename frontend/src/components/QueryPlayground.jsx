@@ -311,7 +311,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
     const prompt = (queryText || '').trim();
     if (!prompt) return;
 
-    if (selectedIds.size === 0) {
+    if (retrievalMode !== 'websearch' && selectedIds.size === 0) {
       showToast('Please check at least 1 document on the left to query against', 'warning');
       return;
     }
@@ -343,9 +343,10 @@ export default function QueryPlayground({ onNavigateToIngest }) {
 
     try {
       if (retrievalMode === 'websearch') {
-        const res = await fetch(`${API_BASE}/query/web_search?question=${encodeURIComponent(question)}&max_results=5`, {
+        const headers = { ...(typeof getAuthHeaders === 'function' ? getAuthHeaders() : {}) };
+        const res = await fetch(`${API_BASE}/query/web_search?question=${encodeURIComponent(prompt)}&max_results=5`, {
           method: 'GET',
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          headers,
         });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
@@ -353,24 +354,28 @@ export default function QueryPlayground({ onNavigateToIngest }) {
         }
         const data = await res.json();
         const chunks = data.chunks || [];
-        const answerText = chunks.length
-          ? `Web Search Results for "${question}":\n\n${chunks.map((c, i) => `[${i + 1}] ${c.content}\nSource: ${c.url || 'N/A'}`).join('\n\n')}`
-          : 'No web results found.';
-        const userMsg = { id: Date.now(), role: 'user', text: question };
-        const assistantMsg = {
-          id: Date.now() + 1,
+        const answerText = data.answer || (chunks.length
+          ? `Web Search Results for "${prompt}":\n\n${chunks.map((c, i) => `[${i + 1}] ${c.content}\nSource: ${c.url || 'N/A'}`).join('\n\n')}`
+          : 'No web results found.');
+        const assistantMessage = {
+          id: assistantMsgId,
           role: 'assistant',
-          text: answerText,
-          chunks: chunks.map((c, idx) => ({
-            snippet: c.content.substring(0, 320) + (c.content.length > 320 ? '...' : ''),
-            full_snippet: c.content.substring(0, 1200),
+          answer: answerText,
+          chunksFound: chunks.length,
+          sourcesQueried: chunks.length,
+          chunks: chunks.map((c) => ({
+            snippet: (c.content || '').substring(0, 320) + ((c.content || '').length > 320 ? '...' : ''),
+            full_snippet: (c.content || '').substring(0, 1200),
             score: null,
             source: c.url || 'Web',
             metadata: { url: c.url }
           })),
-          retrievalMode
+          latencyMs: Math.round(performance.now() - startTime),
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          retrievalMode,
         };
-        setMessages(prev => [...prev, userMsg, assistantMsg]);
+        setChatMessages((prev) => [...prev, assistantMessage]);
+        setQuerying(false);
         return;
       }
 
@@ -760,14 +765,14 @@ export default function QueryPlayground({ onNavigateToIngest }) {
 
           {/* Footer Status */}
           <div className="qp-sidebar-footer">
-            <div className={`qp-footer-dot ${selectedIds.size > 0 ? 'online' : ''}`} />
-            {selectedIds.size === 0 ? (
-              <span className="qp-footer-warn">No sources selected</span>
-            ) : (
-              <span className="qp-footer-info">
-                <strong>{selectedIds.size}</strong> source{selectedIds.size === 1 ? '' : 's'} · {selectedChunksCount} chunks
-              </span>
-            )}
+            <div className={`qp-footer-dot ${retrievalMode === 'websearch' || selectedIds.size > 0 ? 'online' : ''}`} />
+              {selectedIds.size === 0 && retrievalMode !== 'websearch' ? (
+                <span className="qp-input-ctx-warn">Select documents to enable querying</span>
+              ) : (
+                <span className="qp-input-ctx-ok">
+                  {retrievalMode === 'websearch' ? 'Searching the web (no local docs required)' : `${selectedIds.size} source${selectedIds.size === 1 ? '' : 's'} · ${selectedChunksCount} chunks in context`}
+                </span>
+              )}
           </div>
         </aside>
 
@@ -1131,7 +1136,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    if (!querying && selectedIds.size > 0 && question.trim()) {
+                    if (!querying && (retrievalMode === 'websearch' || selectedIds.size > 0) && question.trim()) {
                       handleSendQuery();
                     }
                   }
@@ -1141,10 +1146,10 @@ export default function QueryPlayground({ onNavigateToIngest }) {
               />
               <button
                 className={`qp-send-btn ${
-                  querying || selectedIds.size === 0 || !question.trim() ? 'disabled' : ''
+                  querying || (retrievalMode !== 'websearch' && selectedIds.size === 0) || !(question && question.trim()) ? 'disabled' : ''
                 }`}
                 onClick={() => handleSendQuery()}
-                disabled={querying || (retrievalMode !== 'websearch' && selectedIds.size === 0) || !question.trim()}
+                disabled={querying || (retrievalMode !== 'websearch' && selectedIds.size === 0) || !(question && question.trim())}
               >
                 {querying ? (
                   <Loader2 size={18} className="qp-spin" />
