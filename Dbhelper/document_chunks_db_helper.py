@@ -6,7 +6,7 @@ from typing import Literal, Optional
 from sqlalchemy import (
     BigInteger, Column, DateTime, Float, Integer, MetaData, String, Table,
     Text, bindparam, cast, delete, func, insert, literal, literal_column,
-    or_, select, text,
+    or_, select, text, union_all,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.exc import SQLAlchemyError
@@ -336,3 +336,20 @@ async def get_keyword_based_chunks(
     return await get_keyword_chunks_by_ids(
         query, [owner], column, top_k, websearch=True
     )
+
+async def get_chunks_by_source_id(source_id: str) -> list[dict]:
+    try:
+        by_content = select(*_RESULT_COLUMNS).where(t.content_id == source_id)
+        by_feed = select(*_RESULT_COLUMNS).where(t.feed_id == source_id)
+        u = union_all(by_content, by_feed).subquery()
+        stmt = select(u).order_by(u.c.chunk_index, u.c.id)
+        async with AsyncDB() as s:
+            result = await s.execute(stmt)
+            return [dict(row) for row in result.mappings().all()]
+
+    except SQLAlchemyError:
+        logger.exception("Database error retrieving chunks (source_id=%s)", source_id)
+        return []
+    except Exception:
+        logger.exception("Unexpected error retrieving chunks (source_id=%s)", source_id)
+        return []

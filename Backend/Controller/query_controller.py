@@ -21,6 +21,7 @@ from Dbhelper.query_db_helper import (
     delete_user_query,
     clear_user_query_history,
 )
+from Dbhelper.document_chunks_db_helper import get_chunks_by_source_id
 from Query.WebSearchFallback import web_search_fallback
 
 class QueryRequest(BaseModel):
@@ -51,17 +52,8 @@ _tokenizer = tiktoken.get_encoding("cl100k_base")
 
 
 async def _load_source_text(source_id: str, max_tokens: int = MAX_FULLCONTEXT_TOKENS) -> str:
-    docstore, index_to_id = await read_pickle_file(source_id)
-    parts = (
-        docstore._dict[index_to_id[i]].page_content
-        for i in range(len(index_to_id))
-    )
-    text = "\n\n".join(p for p in parts if p.strip())
-    tokens = _tokenizer.encode(text)
-    if len(tokens) <= max_tokens:
-        return text
-    truncated = _tokenizer.decode(tokens[:max_tokens])
-    return truncated + "\n\n[...truncated to fit token limit...]"
+    chunks = await get_chunks_by_source_id(source_id)
+    return "\n".join(c["content"] for c in chunks)
 
 
 def extract_inspectable_chunks(chunks: list[tuple], max_items: int = 8) -> list:
