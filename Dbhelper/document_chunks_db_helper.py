@@ -342,7 +342,7 @@ async def get_chunks_by_source_id(source_id: str) -> list[dict]:
         by_content = select(*_RESULT_COLUMNS).where(t.content_id == source_id)
         by_feed = select(*_RESULT_COLUMNS).where(t.feed_id == source_id)
         u = union_all(by_content, by_feed).subquery()
-        stmt = select(u).order_by(u.c.chunk_index, u.c.id)
+        stmt = select(u).order_by(u.c.chunk_index)
         async with AsyncDB() as s:
             result = await s.execute(stmt)
             return [dict(row) for row in result.mappings().all()]
