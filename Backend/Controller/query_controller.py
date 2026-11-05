@@ -56,6 +56,7 @@ async def _load_source_text(source_id: str, max_tokens: int = MAX_FULLCONTEXT_TO
     return "\n".join(c["content"] for c in chunks)
 
 
+
 def extract_inspectable_chunks(chunks: list[tuple], max_items: int = 8) -> list:
     """Format chunk tuples into inspectable payload for UI RAG testing."""
     result = []

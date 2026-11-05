@@ -107,9 +107,6 @@ async def ingest_pdf(file, name: str):
                 f"Failed to save content record for {content_id}; "
                 "chunks were not inserted"
             )
-
-        # Mark before starting: the database helper may insert some batches
-        # before a later batch fails.
         chunks_save_started = True
         await build_and_save_index(
             chunks,
