@@ -53,7 +53,12 @@ _tokenizer = tiktoken.get_encoding("cl100k_base")
 
 async def _load_source_text(source_id: str, max_tokens: int = MAX_FULLCONTEXT_TOKENS) -> str:
     chunks = await get_chunks_by_source_id(source_id)
-    return "\n".join(c["content"] for c in chunks)
+    text = "\n".join(c.get("content") or c.get("page_content") or "" for c in chunks)
+    tokens = _tokenizer.encode(text)
+    if len(tokens) <= max_tokens:
+        return text
+    truncated = _tokenizer.decode(tokens[:max_tokens])
+    return truncated + "\n\n[...truncated to fit token limit...]"
 
 
 
