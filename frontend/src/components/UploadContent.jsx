@@ -10,7 +10,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Presentation
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
@@ -293,6 +294,58 @@ export default function UploadContent({ onUploadSuccess }) {
                   Drop CSV file or <span className="highlight-browse">browse</span>
                 </div>
                 <div className="dropzone-sub-text">.CSV files up to 15MB</div>
+              </>
+            )}
+          </label>
+        </div>
+
+        {/* Card: PowerPoint Presentations */}
+        <div 
+          className={`ingestion-card ${dragOverCard === 'pptx' ? 'drag-over' : ''}`}
+          onDragOver={(e) => { e.preventDefault(); setDragOverCard('pptx'); }}
+          onDragLeave={() => setDragOverCard(null)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOverCard(null);
+            if (e.dataTransfer.files[0]) {
+              const file = e.dataTransfer.files[0];
+              handleFileUpload(file, '/upload/upload_presentation', 'pptx');
+            }
+          }}
+        >
+          <div className="card-top-header">
+            <div className="icon-wrapper icon-orange">
+              <Presentation size={22} />
+            </div>
+            <div>
+              <h3 className="card-heading">PowerPoint Presentations</h3>
+              <p className="card-subtext">Extract text and slides from presentation decks</p>
+            </div>
+          </div>
+
+          <label className="custom-dropzone">
+            <input 
+              type="file" 
+              accept=".pptx"
+              onChange={(e) => {
+                if (e.target.files[0]) {
+                  const file = e.target.files[0];
+                  handleFileUpload(file, '/upload/upload_presentation', 'pptx');
+                }
+              }}
+            />
+            {loading.pptx ? (
+              <div className="loading-spinner-box">
+                <Loader2 className="animate-spin text-orange" size={28} />
+                <span className="uploading-text">Parsing Slides & Generating Embeddings...</span>
+              </div>
+            ) : (
+              <>
+                <Upload className="dropzone-svg-icon text-orange" size={28} />
+                <div className="dropzone-main-text">
+                  Drop PPTX file or <span className="highlight-browse">browse</span>
+                </div>
+                <span className="dropzone-sub-text">Supported: .pptx (up to 15MB)</span>
               </>
             )}
           </label>

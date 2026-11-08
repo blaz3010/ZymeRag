@@ -38,7 +38,8 @@ import {
   BookOpen,
   BarChart3,
   Target,
-  Hash
+  Hash,
+  Presentation
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
@@ -490,6 +491,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
     if (t === 'url' || t === 'website') return <Globe size={14} />;
     if (t === 'docx' || t === 'word') return <FileText size={14} />;
     if (t === 'csv') return <FileSpreadsheet size={14} />;
+    if (t === 'pptx' || t === 'presentation') return <Presentation size={14} />;
     if (['image', 'png', 'jpg', 'jpeg'].includes(t)) return <ImageIcon size={14} />;
     return <FileText size={14} />;
   };
@@ -500,6 +502,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
     if (t === 'url' || t === 'website') return 'qp-type-url';
     if (t === 'docx' || t === 'word') return 'qp-type-docx';
     if (t === 'csv') return 'qp-type-csv';
+    if (t === 'pptx' || t === 'presentation') return 'qp-type-pptx';
     if (['image', 'png', 'jpg', 'jpeg'].includes(t)) return 'qp-type-image';
     return 'qp-type-generic';
   };
