@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, ExternalLink, Info, Trash2, AlertCircle, User, Globe, Loader, FileText, Loader2, Copy, Check, X, FileSpreadsheet } from 'lucide-react';
+import { Search, Plus, ExternalLink, Info, Trash2, AlertCircle, User, Globe, Loader, FileText, Loader2, Copy, Check, X, FileSpreadsheet, Presentation } from 'lucide-react';
 import SourceMetadataModal from './SourceMetadataModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 
@@ -285,8 +285,9 @@ export default function IngestedSources({ onNavigateToAdd }) {
                     <td>
                       <span className={`type-tag type-${(item.type || '').toLowerCase() === 'url' ? 'website' : (item.type || '').toLowerCase()}`}>
                         {(item.type || '').toLowerCase() === 'csv' && <FileSpreadsheet size={12} />}
+                        {((item.type || '').toLowerCase() === 'pptx' || (item.type || '').toLowerCase() === 'presentation') && <Presentation size={12} />}
                         {((item.type || '').toLowerCase() === 'url' || (item.type || '').toLowerCase() === 'website' || (item.type || '').toLowerCase() === 'feed') && <Globe size={12} />}
-                        {(item.type || '').toLowerCase() !== 'csv' && (item.type || '').toLowerCase() !== 'url' && (item.type || '').toLowerCase() !== 'website' && (item.type || '').toLowerCase() !== 'feed' && <FileText size={12} />}
+                        {(item.type || '').toLowerCase() !== 'csv' && (item.type || '').toLowerCase() !== 'pptx' && (item.type || '').toLowerCase() !== 'presentation' && (item.type || '').toLowerCase() !== 'url' && (item.type || '').toLowerCase() !== 'website' && (item.type || '').toLowerCase() !== 'feed' && <FileText size={12} />}
                         <span>{item.type || 'Document'}</span>
                       </span>
                     </td>

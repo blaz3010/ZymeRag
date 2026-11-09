@@ -47,7 +47,8 @@ async def ingest_pptx(file, name: str):
 
     try:
         async with pptx_semaphore:
-            markdown = await asyncio.to_thread(extract_text_from_pptx, file)
+            file_bytes = await file.read()
+            markdown = await asyncio.to_thread(extract_text_from_pptx, file_bytes)
         if not markdown or not markdown.strip():
             print(f"No extractable text in {file.filename} (scanned PDF? try OCR)")
             return None
