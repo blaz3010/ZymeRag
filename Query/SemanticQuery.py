@@ -9,14 +9,9 @@ from Embeddings.Embeddingmaker import embedder
 from Dbhelper.document_chunks_db_helper import get_semantic_chunks_by_ids  # adjust to your helper's module name
 
 logger = logging.getLogger(__name__)
-
-# Qwen3-Embedding is instruction-aware: queries get an instruction, documents don't.
-# Set to None if `embedder` already applies a query prompt.
 QUERY_INSTRUCTION: Optional[str] = (
     "Given a question, retrieve passages that answer it"
 )
-
-# True only on pgvector >= 0.8 with an HNSW index.
 USE_ITERATIVE_SCAN = False
 
 
@@ -41,8 +36,6 @@ class SemanticQuery:
         except Exception:
             logger.exception("Failed to embed query for %s search", kind)
             return []
-
-        # Dimension / NaN validation and error handling live in the helper.
         return await get_semantic_chunks_by_ids(
             query_vec,
             ids,

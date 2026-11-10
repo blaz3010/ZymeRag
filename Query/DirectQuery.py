@@ -10,7 +10,7 @@ from Query.WebSearchFallback import WebSearchFallback
 logger = logging.getLogger(__name__)
 
 KEYWORD_CANDIDATES = 10
-SEMANTIC_CANDIDATES = 6
+SEMANTIC_CANDIDATES = 10
 FINAL_TOP_K = 12
 RRF_K = 60
 bm25 = BM25(top_k=KEYWORD_CANDIDATES)

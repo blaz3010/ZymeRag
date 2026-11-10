@@ -11,11 +11,6 @@ MAX_QUERY_TOKENS = 32
 
 
 class BM25:
-    """
-    Keyword retrieval over document_chunks using Postgres full-text search.
-    (Name kept for compatibility; ranking is ts_rank_cd, not true BM25.)
-    """
-
     _COLUMNS = {"Feed": "feed_id", "Content": "content_id"}
 
     def __init__(self, top_k: int = 6):
@@ -52,7 +47,7 @@ class BM25:
             ids,
             self._COLUMNS[kind],
             top_k,
-            websearch=False,  # ts_query is already a to_tsquery expression
+            websearch=False,
         )
 
     @staticmethod
