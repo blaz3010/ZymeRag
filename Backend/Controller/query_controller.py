@@ -106,8 +106,8 @@ async def query_endpoint(question: str = Query(...), ids: list[str] = Query(...)
         answer = await generate_answer(question, context)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM generation failed: {e}")
-
-    return answer
+    print(answer)
+    return {"answer": answer}
 
 async def query_endpoint_fullcontext(question: str = Query(...), ids: list[str] = Query(...)):
     if not question or not question.strip():
@@ -136,64 +136,8 @@ async def query_endpoint_fullcontext(question: str = Query(...), ids: list[str] 
     type(answer).__name__,
     len(answer) if isinstance(answer, str) else 0,)
     logger.info("[query_fullcontext] answer=%s", answer)
-    return answer
+    return {"answer":answer}
 
-
-async def user_query_endpoint(body: QueryBodyRequest):
-    """
-    Public query endpoint for the RAG Playground.
-    1. Validates selected sources exist in the system.
-    2. Runs hybrid RAG search (BM25 + Dense FAISS embeddings).
-    3. Synthesizes response with LLM.
-    4. Automatically logs query record with linked content_ids and feed_ids into the database.
-    5. Returns answer along with retrieved chunks for inspection.
-    """
-    question = (body.question or "").strip()
-    if not question:
-        raise HTTPException(status_code=400, detail="Question cannot be empty")
-
-    selected_ids = body.selected_ids or []
-    if not selected_ids:
-        raise HTTPException(status_code=400, detail="Please select at least one document or source to query against")
-    all_system_ids = set(await get_all_active_source_ids())
-    valid_ids = [sid for sid in selected_ids if sid in all_system_ids]
-    if not valid_ids:
-        raise HTTPException(status_code=403, detail="None of the selected sources exist in the knowledge base")
-    matched_content_ids = [sid for sid in valid_ids]
-    matched_feed_ids = [sid for sid in valid_ids]
-    chunks = []
-    try:
-        chunks = await get_all_chunks(question, valid_ids)
-    except FileNotFoundError as e:
-        logger.warning("[user_query_endpoint] Missing index files: %s", e)
-    except Exception as e:
-        logger.exception("[user_query_endpoint] Retrieval failed: %s", e)
-    inspectable_chunks = extract_inspectable_chunks(chunks)
-    if not chunks:
-        answer = (
-            "No relevant chunks were matched in the selected documents for your query. "
-            "Try selecting more documents, or rephrase your question with different keywords."
-        )
-    else:
-        context = await build_context(chunks)
-        try:
-            answer = await generate_answer(question, context)
-        except Exception as e:
-            logger.exception("[user_query_endpoint] LLM answer generation failed: %s", e)
-            raise HTTPException(status_code=502, detail=f"LLM answer generation failed: {e}")
-    saved_record = await save_query(
-        question=question,
-        answer=answer,
-        content_ids=matched_content_ids,
-        feed_ids=matched_feed_ids,
-        selected_ids=valid_ids,
-        chunks_found=len(chunks),
-    )
-    return {
-        **saved_record,
-        "sources_queried": len(valid_ids),
-        "chunks": inspectable_chunks,
-    }
 
 
 async def get_query_history_endpoint(limit: int = 50):

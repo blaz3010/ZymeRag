@@ -32,7 +32,7 @@ async def upload_pdf(file: UploadFile = File(...), name: str = Form(...), idempo
         async with lock:
             if idempotent_key:
                 if idempotent_key in idempotent_keys:
-                    return {"message": "Duplicate request", "id": idempotent_keys[idempotent_key]}
+                    return {"message": "Duplicate request", "status": "success", "id": idempotent_keys[idempotent_key]}
         if file.content_type not in ["application/pdf"]:
             raise HTTPException(status_code=400, detail="Invalid file type. Only PDF files are allowed.")
         idempotent_keys[idempotent_key]=1
@@ -41,7 +41,7 @@ async def upload_pdf(file: UploadFile = File(...), name: str = Form(...), idempo
         if upload_id_pdf is None:
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="Failed to upload PDF")
-        return {"message": "PDF uploaded successfully", "id": upload_id_pdf}
+        return {"message": "PDF uploaded successfully", "status": "success", "id": upload_id_pdf}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -51,7 +51,7 @@ async def upload_docx(file: UploadFile = File(...), name: str = Form(...), idemp
         async with lock:
             if idempotent_key:
                 if idempotent_key in idempotent_keys:
-                    return {"message": "Duplicate request", "id": idempotent_keys[idempotent_key]}
+                    return {"message": "Duplicate request", "status": "success", "id": idempotent_keys[idempotent_key]}
         if file.content_type not in ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]:
             raise HTTPException(status_code=400, detail="Invalid file type. Only DOCX files are allowed.")
         idempotent_keys[idempotent_key]=1
@@ -64,7 +64,7 @@ async def upload_docx(file: UploadFile = File(...), name: str = Form(...), idemp
         if upload_id_docx is None:
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="Failed to upload docx")
-        return {"message": "docx uploaded successfully", "id": upload_id_docx}
+        return {"message": "docx uploaded successfully", "status": "success", "id": upload_id_docx}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -73,7 +73,7 @@ async def upload_image(file: UploadFile = File(...), name: str = Form(...), idem
         async with lock:
             if idempotent_key:
                 if idempotent_key in idempotent_keys:
-                    return {"message": "Duplicate request", "id": idempotent_keys[idempotent_key]}
+                    return {"message": "Duplicate request", "status": "success", "id": idempotent_keys[idempotent_key]}
         if file.content_type not in ["image/jpeg","image/png"]:
             raise HTTPException(status_code=400, detail="Invalid file type. Only JPEG and PNG images are allowed.")
         idempotent_keys[idempotent_key]=1
@@ -86,7 +86,7 @@ async def upload_image(file: UploadFile = File(...), name: str = Form(...), idem
         if upload_id_image is None:
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="Failed to upload image")
-        return {"message": "image uploaded successfully", "id": upload_id_image}
+        return {"message": "image uploaded successfully", "status": "success", "id": upload_id_image}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -95,7 +95,7 @@ async def upload_csv(file: UploadFile = File(...), name: str = Form(...), idempo
         async with lock:
             if idempotent_key:
                 if idempotent_key in idempotent_keys:
-                    return {"message": "Duplicate request", "id": idempotent_keys[idempotent_key]}
+                    return {"message": "Duplicate request", "status": "success", "id": idempotent_keys[idempotent_key]}
         if file.content_type not in ["text/csv"]:
             raise HTTPException(status_code=400, detail="Invalid file type. Only CSV files are allowed.")
         idempotent_keys[idempotent_key]=1
@@ -108,7 +108,7 @@ async def upload_csv(file: UploadFile = File(...), name: str = Form(...), idempo
         if upload_id_csv is None:
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="Failed to upload csv")
-        return {"message": "csv uploaded successfully", "id": upload_id_csv}
+        return {"message": "csv uploaded successfully", "status": "success", "id": upload_id_csv}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) 
 
@@ -117,7 +117,7 @@ async def upload_audio(file: UploadFile = File(...), name: str = Form(...), idem
         async with lock:
             if idempotent_key:
                 if idempotent_key in idempotent_keys:
-                    return {"message": "Duplicate request", "id": idempotent_keys[idempotent_key]}
+                    return {"message": "Duplicate request", "status": "success", "id": idempotent_keys[idempotent_key]}
         if file.content_type not in ["audio/mpeg","audio/wav","audio/x-wav","audio/x-m4a"]:
             raise HTTPException(status_code=400, detail="Invalid file type. Only MP3, WAV, and M4A audio files are allowed.")
         idempotent_keys[idempotent_key]=1
@@ -130,7 +130,7 @@ async def upload_audio(file: UploadFile = File(...), name: str = Form(...), idem
         if upload_id_audio is None:
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="Failed to upload audio")
-        return {"message": "audio uploaded successfully", "id": upload_id_audio}
+        return {"message": "audio uploaded successfully", "status": "success", "id": upload_id_audio}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -139,7 +139,7 @@ async def upload_video(file: UploadFile = File(...), name: str = Form(...), idem
         async with lock:
             if idempotent_key:
                 if idempotent_key in idempotent_keys:
-                    return {"message": "Duplicate request", "id": idempotent_keys[idempotent_key]}
+                    return {"message": "Duplicate request", "status": "success", "id": idempotent_keys[idempotent_key]}
         if file.content_type not in ["video/mp4","video/x-m4v","video/quicktime"]:
             raise HTTPException(status_code=400, detail="Invalid file type. Only MP4, M4V, and MOV video files are allowed.")
         idempotent_keys[idempotent_key]=1
@@ -152,7 +152,7 @@ async def upload_video(file: UploadFile = File(...), name: str = Form(...), idem
         if upload_id_video is None:
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="Failed to upload video")
-        return {"message": "video uploaded successfully", "id": upload_id_video}
+        return {"message": "video uploaded successfully", "status": "success", "id": upload_id_video}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -161,7 +161,7 @@ async def upload_website(url: str = Form(...), idempotent_key: Optional[str] = F
         async with lock:
             if idempotent_key:
                 if idempotent_key in idempotent_keys:
-                    return {"message": "Duplicate request", "id": idempotent_keys[idempotent_key]}
+                    return {"message": "Duplicate request", "status": "success", "id": idempotent_keys[idempotent_key]}
         if not re.match(URL_PATTERN, url or ""):
             raise HTTPException(status_code=400, detail="Invalid URL. A valid http/https URL is required.")
         idempotent_keys[idempotent_key]=1
@@ -170,7 +170,7 @@ async def upload_website(url: str = Form(...), idempotent_key: Optional[str] = F
         if upload_id_website is None:
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="Failed to upload website")
-        return {"message": "website uploaded successfully", "id": upload_id_website}
+        return {"message": "website uploaded successfully","status": "success" ,"id": upload_id_website}
     except HTTPException:
         raise
     except Exception as e:
@@ -196,7 +196,7 @@ async def upload_raw_text(text: str = Form(...), name: str = Form(...), idempote
         if upload_id_raw is None:
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="Failed to upload raw text")
-        return {"message": "raw text uploaded successfully", "id": upload_id_raw}
+        return {"message": "raw text uploaded successfully", "status": "success", "id": upload_id_raw}
     except HTTPException:
         raise
     except Exception as e:
@@ -224,7 +224,10 @@ async def upload_presentation(file: UploadFile = File(...),name: str = Form(...)
             async with lock:
                 idempotent_keys[idempotent_key] = upload_id
         return {
-            "message": "Presentation uploaded successfully","id": upload_id}
+            "message": "Presentation uploaded successfully",
+            "status": "success",
+            "id": upload_id
+        }
     except HTTPException:
         raise
     except Exception as e:

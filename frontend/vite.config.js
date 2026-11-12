@@ -2,7 +2,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 // API target: inside Docker Compose set VITE_API_URL=http://backend:8000
-const apiTarget = process.env.VITE_API_URL || 'http://127.0.0.1:8000'
+const apiTarget = process.env.VITE_API_URL || 'http://127.0.0.1:8081'
 
 // https://vite.dev/config/
 export default defineConfig({
