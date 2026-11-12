@@ -5,13 +5,12 @@ from typing import Optional
 
 from sqlalchemy import (
     BigInteger, Boolean, CheckConstraint, Column, DateTime,
-    ForeignKey, Integer, Text, func,
+    Integer, Text, func,
 )
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
-
 
 
 class FileType(str, PyEnum):
@@ -25,29 +24,12 @@ class FileType(str, PyEnum):
     website = "website"
 
 
-
 _file_type_sa = SAEnum(
     FileType,
     name="file_type_enum",
-    create_type=False,  
+    create_type=False,
     values_callable=lambda obj: [e.value for e in obj],
 )
-
-
-
-class UserModel(Base):
-    __tablename__ = "users"
-
-    user_id                  = Column("user_id",                  Text, primary_key=True)
-    username                 = Column("username",                 Text, unique=True, nullable=False)
-    email                    = Column("email",                    Text, unique=True, nullable=True)
-    password_hash            = Column("password_hash",            Text, nullable=True)
-    refresh_token            = Column("refresh_token",            Text, nullable=True)
-    refresh_token_expires_at = Column("refresh_token_expires_at", DateTime(timezone=True), nullable=True)
-    is_active                = Column("is_active",                Boolean, nullable=False, server_default="true")
-    created_at               = Column("created_at",               DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at               = Column("updated_at",               DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-
 
 
 class ContentModel(Base):
@@ -75,53 +57,6 @@ class FeedModel(Base):
     deleted_at  = Column("deleted_at",  DateTime(timezone=True), nullable=True)
 
 
-
-class UserMappingModel(Base):
-    __tablename__ = "user_mappings"
-    __table_args__ = (
-        CheckConstraint(
-            "(content_id IS NOT NULL AND feed_id IS NULL) OR "
-            "(content_id IS NULL AND feed_id IS NOT NULL)",
-            name="chk_user_mapping_xor",
-        ),
-    )
-
-    id         = Column("id",         BigInteger, primary_key=True, autoincrement=True)
-    user_id    = Column("user_id",    Text, ForeignKey("users.user_id",          ondelete="CASCADE"), nullable=False)
-    content_id = Column("content_id", Text, ForeignKey("contents.content_id",    ondelete="CASCADE"), nullable=True)
-    feed_id    = Column("feed_id",    Text, ForeignKey("feeds.feed_id",          ondelete="CASCADE"), nullable=True)
-    created_at = Column("created_at", DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-
-class UserQueryModel(Base):
-    __tablename__ = "user_queries"
-
-    id           = Column("id",           BigInteger, primary_key=True, autoincrement=True)
-    query_id     = Column("query_id",     Text, unique=True, nullable=False)
-    user_id      = Column("user_id",      Text, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    question     = Column("question",     Text, nullable=False)
-    answer       = Column("answer",       Text, nullable=False)
-    content_ids  = Column("content_ids",  Text, nullable=False, server_default="[]")
-    feed_ids     = Column("feed_ids",     Text, nullable=False, server_default="[]")
-    selected_ids = Column("selected_ids", Text, nullable=False, server_default="[]")
-    chunks_found = Column("chunks_found", Integer, nullable=False, server_default="0")
-    created_at   = Column("created_at",   DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-
-
-@dataclass
-class User:
-    user_id: str
-    username: str
-    is_active: bool = True
-    email: Optional[str] = None
-    password_hash: Optional[str] = None
-    refresh_token: Optional[str] = None
-    refresh_token_expires_at: Optional[datetime] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-
-
 @dataclass
 class ContentItem:
     content_id: str
@@ -143,26 +78,3 @@ class FeedItem:
     inserted_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
-
-
-@dataclass
-class UserMapping:
-    id: int
-    user_id: str
-    content_id: Optional[str] = None
-    feed_id: Optional[str] = None
-    created_at: Optional[datetime] = None
-
-
-@dataclass
-class UserQueryItem:
-    query_id: str
-    user_id: str
-    question: str
-    answer: str
-    content_ids: list
-    feed_ids: list
-    selected_ids: list
-    chunks_found: int = 0
-    id: Optional[int] = None
-    created_at: Optional[datetime] = None

@@ -19,7 +19,6 @@ from fastapi.responses import FileResponse
 
 from Backend.Router.upload_router import upload_router
 from Backend.Router.delete_router import delete_router
-from Backend.Router.user_router import user_router
 from Backend.Router.query_router import query_router
 from Backend.Router.sources_router import sources_router
 
@@ -29,9 +28,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     try:
         from Dbhelper.db import init_db
-        from Dbhelper.query_db_helper import ensure_queries_table
         await init_db()
-        await ensure_queries_table()
         logger.info("Application startup: database tables checked successfully.")
     except Exception as e:
         logger.warning("Application startup: DB check warning: %s", e)
@@ -58,7 +55,6 @@ app.add_middleware(
 app.include_router(upload_router, prefix="/upload", tags=["Upload"])
 app.include_router(delete_router, prefix="/delete", tags=["Delete"])
 app.include_router(query_router, prefix="/query", tags=["Query"])
-app.include_router(user_router, prefix="/user", tags=["User"])
 app.include_router(sources_router, prefix="/sources", tags=["Sources"])
 
 static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")

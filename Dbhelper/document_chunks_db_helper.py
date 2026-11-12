@@ -337,6 +337,31 @@ async def get_keyword_based_chunks(
         query, [owner], column, top_k, websearch=True
     )
 
+async def delete_source_row_by_id(source_id: str) -> bool:
+    try:
+        async with AsyncDB() as s:
+            result = await s.execute(
+                text("UPDATE contents SET deleted_at = NOW() WHERE content_id = :sid AND deleted_at IS NULL"),
+                {"sid": source_id},
+            )
+            if (result.rowcount or 0) > 0:
+                await s.commit()
+                return True
+
+            result = await s.execute(
+                text("UPDATE feeds SET deleted_at = NOW() WHERE feed_id = :sid AND deleted_at IS NULL"),
+                {"sid": source_id},
+            )
+            await s.commit()
+            return (result.rowcount or 0) > 0
+    except SQLAlchemyError:
+        logger.exception("Database error soft deleting source row id=%s", source_id)
+        return False
+    except Exception:
+        logger.exception("Unexpected error soft deleting source row id=%s", source_id)
+        return False
+
+
 async def get_chunks_by_source_id(source_id: str) -> list[dict]:
     try:
         by_content = select(*_RESULT_COLUMNS).where(t.content_id == source_id)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, ExternalLink, Info, Trash2, AlertCircle, User, Globe, Loader, FileText, Loader2, Copy, Check, X, FileSpreadsheet, Presentation } from 'lucide-react';
+import { Search, Plus, ExternalLink, Info, Trash2, AlertCircle, Globe, Loader, FileText, Loader2, Copy, Check, X, FileSpreadsheet, Presentation, RefreshCw, Upload } from 'lucide-react';
 import SourceMetadataModal from './SourceMetadataModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 
@@ -7,15 +7,13 @@ const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 // Static fallback only if server cannot be reached at all
 const ALL_SOURCES_FALLBACK = [
-  { 
-    id: 'sample-1', 
-    name: 'ZymeRag Architecture Overview.pdf', 
-    type: 'Pdf', 
-    status: 'Ingested', 
+  {
+    id: 'sample-1',
+    name: 'ZymeRag Architecture Overview.pdf',
+    type: 'Pdf',
+    status: 'Ingested',
     chunks: 42,
     url: 'https://arxiv.org/pdf/2312.10997.pdf',
-    is_mine: false,
-    owner: 'System'
   }
 ];
 
@@ -24,7 +22,6 @@ export default function IngestedSources({ onNavigateToAdd }) {
   const [selectedSource, setSelectedSource] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [viewMode, setViewMode] = useState('all'); // 'all' or 'mine'
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
 
@@ -34,26 +31,23 @@ export default function IngestedSources({ onNavigateToAdd }) {
   const [chunksLoading, setChunksLoading] = useState(false);
   const [chunksCopied, setChunksCopied] = useState(false);
 
+  // Replace content modal state
+  const [replaceTarget, setReplaceTarget] = useState(null);
+  const [replaceFile, setReplaceFile] = useState(null);
+  const [isReplacing, setIsReplacing] = useState(false);
+
   // All sources (fetched from backend /sources/all_sources)
   const [allSources, setAllSources] = useState([]);
-  // My sources (fetched from backend /sources/my_sources)
-  const [mySources, setMySources] = useState([]);
-
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('zymerag_access_token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  };
 
   const fetchSources = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
-    const endpoint = viewMode === 'mine' ? '/sources/my_sources' : '/sources/all_sources';
+    const endpoint = '/sources/all_sources';
 
     try {
       const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'GET',
-        headers: getAuthHeaders(),
-        credentials: 'include',
+        headers: {},
       });
 
       if (!res.ok) {
@@ -62,21 +56,17 @@ export default function IngestedSources({ onNavigateToAdd }) {
 
       const data = await res.json();
       const list = data.sources || [];
-      if (viewMode === 'mine') {
-        setMySources(list);
-      } else {
-        setAllSources(list);
-      }
+      setAllSources(list);
     } catch (err) {
       console.error('Error fetching sources:', err);
-      setLoadError(`Could not load ${viewMode === 'mine' ? 'your' : 'all'} sources. Please check connection.`);
-      if (viewMode === 'all' && allSources.length === 0) {
+      setLoadError('Could not load sources. Please check connection.');
+      if (allSources.length === 0) {
         setAllSources([]);
       }
     } finally {
       setIsLoading(false);
     }
-  }, [viewMode]);
+  }, []);
 
   // Fetch all chunks for a specific source via the /sources/show_chunks endpoint
   const fetchChunks = useCallback(async (uuid, type) => {
@@ -90,7 +80,7 @@ export default function IngestedSources({ onNavigateToAdd }) {
         : `${API_BASE}/sources/show_chunks?content_id=${encodeURIComponent(uuid)}`;
       const res = await fetch(url, {
         method: 'GET',
-        headers: getAuthHeaders(),
+        headers: {},
       });
       if (!res.ok) {
         throw new Error(`Failed to fetch chunks (${res.status})`);
@@ -110,7 +100,7 @@ export default function IngestedSources({ onNavigateToAdd }) {
     fetchSources();
   }, [fetchSources]);
 
-  const activeSources = viewMode === 'all' ? allSources : mySources;
+  const activeSources = allSources;
 
 
   const confirmDelete = async () => {
@@ -118,23 +108,50 @@ export default function IngestedSources({ onNavigateToAdd }) {
     setIsDeleting(true);
 
     try {
-      const token = localStorage.getItem('zymerag_access_token');
       const formData = new FormData();
       formData.append('id', deleteTarget.id);
       await fetch(`${API_BASE}/delete/delete_content`, {
         method: 'DELETE',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: {},
         body: formData
       });
-      // Remove from both lists
       setAllSources(prev => prev.filter(s => s.id !== deleteTarget.id));
-      setMySources(prev => prev.filter(s => s.id !== deleteTarget.id));
     } catch (err) {
       setAllSources(prev => prev.filter(s => s.id !== deleteTarget.id));
-      setMySources(prev => prev.filter(s => s.id !== deleteTarget.id));
     } finally {
       setIsDeleting(false);
       setDeleteTarget(null);
+    }
+  };
+
+  const handleReplaceContent = async () => {
+    if (!replaceFile || !replaceTarget) return;
+    if (replaceFile.size > 15 * 1024 * 1024) {
+      return;
+    }
+    setIsReplacing(true);
+    const formData = new FormData();
+    formData.append('content_id', replaceTarget.id);
+    formData.append('file', replaceFile);
+    formData.append('name', replaceFile.name.substring(0, replaceFile.name.lastIndexOf('.')) || replaceFile.name);
+
+    try {
+      const res = await fetch(`${API_BASE}/upload/replace_content`, {
+        method: 'POST',
+        headers: {},
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Update the source in place with new ID
+        setAllSources(prev => prev.map(s => s.id === replaceTarget.id ? { ...s, id: data.new_id, name: data.name } : s));
+      }
+    } catch (err) {
+      console.error('Replace error:', err);
+    } finally {
+      setIsReplacing(false);
+      setReplaceTarget(null);
+      setReplaceFile(null);
     }
   };
 
@@ -168,7 +185,7 @@ export default function IngestedSources({ onNavigateToAdd }) {
         </button>
       </div>
 
-      {/* Filter Row: Search + View Mode Toggle */}
+      {/* Filter Row: Search */}
       <div className="search-row">
         <div className="sources-filter-row">
           <div className="search-bar-box">
@@ -187,25 +204,6 @@ export default function IngestedSources({ onNavigateToAdd }) {
             )}
           </div>
 
-          {/* View Mode Toggle */}
-          <div className="view-mode-toggle" id="sources-view-toggle">
-            <button 
-              className={`view-mode-btn ${viewMode === 'all' ? 'active' : ''}`}
-              onClick={() => setViewMode('all')}
-              id="view-all-sources-btn"
-            >
-              <Globe size={14} />
-              <span>All Sources</span>
-            </button>
-            <button 
-              className={`view-mode-btn ${viewMode === 'mine' ? 'active' : ''}`}
-              onClick={() => setViewMode('mine')}
-              id="view-my-sources-btn"
-            >
-              <User size={14} />
-              <span>My Sources</span>
-            </button>
-          </div>
         </div>
       </div>
 
@@ -213,7 +211,7 @@ export default function IngestedSources({ onNavigateToAdd }) {
       {isLoading && (
         <div className="my-sources-loading-bar">
           <Loader size={16} className="animate-spin" />
-          <span>Loading {viewMode === 'mine' ? 'your' : 'all'} ingested sources…</span>
+          <span>Loading ingested sources…</span>
         </div>
       )}
 
@@ -231,7 +229,6 @@ export default function IngestedSources({ onNavigateToAdd }) {
           <thead>
             <tr>
               <th>Source Name</th>
-              <th>Owner</th>
               <th>Type</th>
               <th>Vector Chunks</th>
               <th>Status</th>
@@ -241,24 +238,23 @@ export default function IngestedSources({ onNavigateToAdd }) {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="empty-table-cell">
+                <td colSpan={5} className="empty-table-cell">
                   <Loader size={20} className="animate-spin" style={{ margin: '0 auto 8px', display: 'block' }} />
-                  Fetching {viewMode === 'mine' ? 'your' : 'all'} sources…
+                  Fetching sources…
                 </td>
               </tr>
             ) : filteredSources.length === 0 ? (
               <tr>
-                <td colSpan={6} className="empty-table-cell">
+                <td colSpan={5} className="empty-table-cell">
                   <AlertCircle size={20} className="mx-auto mb-2 text-gray-400" />
-                  {viewMode === 'mine' && !searchQuery
-                    ? "You haven't ingested any sources yet. Start by ingesting new data!"
-                    : `No ingested sources found matching "${searchQuery}".`
+                  {searchQuery
+                    ? `No ingested sources found matching "${searchQuery}".`
+                    : "No ingested sources found. Start by ingesting new data!"
                   }
                 </td>
               </tr>
             ) : (
               filteredSources.map((item) => {
-                const isMine = item.is_mine || viewMode === 'mine';
                 return (
                   <tr key={item.id} className="table-row-item">
                                         <td>
@@ -276,11 +272,6 @@ export default function IngestedSources({ onNavigateToAdd }) {
                           </a>
                         )}
                       </div>
-                    </td>
-                    <td>
-                      <span className={`owner-badge ${isMine ? 'owner-badge-you' : 'owner-badge-other'}`}>
-                        {isMine ? 'You' : (item.owner || 'Shared')}
-                      </span>
                     </td>
                     <td>
                       <span className={`type-tag type-${(item.type || '').toLowerCase() === 'url' ? 'website' : (item.type || '').toLowerCase()}`}>
@@ -326,13 +317,23 @@ export default function IngestedSources({ onNavigateToAdd }) {
                         </button>
 
                         {/* High-End Delete Button */}
-                        <button 
-                          className="action-pill-btn delete-pill" 
+                        <button
+                          className="action-pill-btn delete-pill"
                           title="Delete Source"
                           onClick={() => setDeleteTarget(item)}
                         >
                           <Trash2 size={13} />
                           <span>Delete</span>
+                        </button>
+
+                        {/* Replace Content Button */}
+                        <button
+                          className="action-pill-btn inspect-pill"
+                          title="Replace with new file"
+                          onClick={() => setReplaceTarget(item)}
+                        >
+                          <RefreshCw size={13} />
+                          <span>Replace</span>
                         </button>
                       </div>
                     </td>
@@ -422,6 +423,90 @@ export default function IngestedSources({ onNavigateToAdd }) {
             <div className="modal-footer-styled">
               <button onClick={() => setChunksSource(null)} className="primary-modal-btn">
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Replace Content Modal */}
+      {replaceTarget && (
+        <div className="modal-backdrop" onClick={() => { setReplaceTarget(null); setReplaceFile(null); }}>
+          <div className="modal-card metadata-modal-card" style={{ maxWidth: '560px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header-styled">
+              <div className="flex-header-title">
+                <div className="modal-icon-badge badge-emerald">
+                  <RefreshCw size={18} />
+                </div>
+                <div>
+                  <h3 className="modal-title-text">Replace Content</h3>
+                  <p className="modal-subtitle-text">Swap <strong>{replaceTarget.name}</strong> with a new file</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setReplaceTarget(null); setReplaceFile(null); }}
+                className="modal-close-icon-btn"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="modal-body-container">
+              <div className="metadata-info-box mb-4">
+                <div className="info-label">SOURCE ID (PRESERVED)</div>
+                <div className="info-value-text" style={{ fontFamily: 'monospace', fontSize: '13px' }}>
+                  {replaceTarget.id}
+                </div>
+              </div>
+
+              <label className="custom-dropzone" style={{ margin: 0 }}>
+                <input
+                  type="file"
+                  accept=".pdf,.docx,.csv,.pptx,image/*,video/*,audio/*"
+                  onChange={(e) => {
+                    if (e.target.files[0]) {
+                      setReplaceFile(e.target.files[0]);
+                    }
+                  }}
+                />
+                {isReplacing ? (
+                  <div className="loading-spinner-box">
+                    <Loader2 className="animate-spin text-emerald" size={28} />
+                    <span className="uploading-text">Replacing content...</span>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="dropzone-svg-icon text-emerald" size={28} />
+                    <div className="dropzone-main-text">
+                      {replaceFile ? replaceFile.name : 'Drop new file or browse'}
+                    </div>
+                    <span className="dropzone-sub-text">Supported: .pdf, .docx, .csv, .pptx, images, video, audio (up to 15MB)</span>
+                  </>
+                )}
+              </label>
+            </div>
+
+            <div className="modal-footer-styled">
+              <button
+                onClick={() => { setReplaceTarget(null); setReplaceFile(null); }}
+                className="primary-modal-btn"
+                style={{ background: '#6b7280' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReplaceContent}
+                className="primary-modal-btn"
+                disabled={!replaceFile || isReplacing}
+              >
+                {isReplacing ? (
+                  <span className="btn-spinner-content">
+                    <Loader2 className="animate-spin" size={14} />
+                    <span>Replacing...</span>
+                  </span>
+                ) : (
+                  'Replace Content'
+                )}
               </button>
             </div>
           </div>

@@ -2,11 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   FlaskConical,
   Send,
-  Upload,
   CheckSquare,
   Square,
   Search,
-  FileText,
+FileText,
   Globe,
   User,
   Sparkles,
@@ -21,7 +20,7 @@ import {
   Trash2,
   AlertCircle,
   FileSpreadsheet,
-  Image as ImageIcon,
+  Image as IMAGE,
   CheckCircle2,
   Loader2,
   ExternalLink,
@@ -46,7 +45,6 @@ const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 export default function QueryPlayground({ onNavigateToIngest }) {
   // Source selection & listing state
-  const [sourceScope, setSourceScope] = useState('all'); // 'all' or 'mine'
   const [sources, setSources] = useState([]);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [sourcesLoading, setSourcesLoading] = useState(true);
@@ -87,17 +85,16 @@ export default function QueryPlayground({ onNavigateToIngest }) {
   };
 
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('zymerag_access_token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    return {};
   };
 
-  // 1. Fetch queryable sources from backend based on selected scope
-  const fetchSources = async (scope = sourceScope) => {
+  // 1. Fetch queryable sources from backend
+  const fetchSources = async () => {
     setSourcesLoading(true);
     try {
-      const endpoint = scope === 'mine' ? '/query/my_queryable_sources' : '/query/all_queryable_sources';
+      const endpoint = '/query/all_queryable_sources';
       let res = await fetch(`${API_BASE}${endpoint}`, {
-        headers: getAuthHeaders(),
+        headers: {},
       });
       let fetched = [];
       if (res.ok) {
@@ -105,11 +102,11 @@ export default function QueryPlayground({ onNavigateToIngest }) {
         fetched = data.sources || [];
       }
 
-      // If empty or endpoint fallback needed, try /sources/ route
+      // If empty, try /sources/ route
       if (fetched.length === 0) {
-        const fallbackEndpoint = scope === 'mine' ? '/sources/my_sources' : '/sources/all_sources';
+        const fallbackEndpoint = '/sources/all_sources';
         const resSources = await fetch(`${API_BASE}${fallbackEndpoint}`, {
-          headers: getAuthHeaders(),
+          headers: {},
         });
         if (resSources.ok) {
           const sData = await resSources.json();
@@ -132,12 +129,12 @@ export default function QueryPlayground({ onNavigateToIngest }) {
     }
   };
 
-  // 2. Fetch user's saved query history
+  // 2. Fetch saved query history
   const fetchHistory = async () => {
     setHistoryLoading(true);
     try {
       const res = await fetch(`${API_BASE}/query/history`, {
-        headers: getAuthHeaders(),
+        headers: {},
       });
       if (res.ok) {
         const data = await res.json();
@@ -492,7 +489,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
     if (t === 'docx' || t === 'word') return <FileText size={14} />;
     if (t === 'csv') return <FileSpreadsheet size={14} />;
     if (t === 'pptx' || t === 'presentation') return <Presentation size={14} />;
-    if (['image', 'png', 'jpg', 'jpeg'].includes(t)) return <ImageIcon size={14} />;
+    if (['image', 'png', 'jpg', 'jpeg'].includes(t)) return <IMAGE size={14} />;
     return <FileText size={14} />;
   };
 
@@ -604,32 +601,6 @@ export default function QueryPlayground({ onNavigateToIngest }) {
             </div>
           </div>
 
-          {/* Scope Toggle */}
-          <div className="qp-scope-toggle" id="playground-scope-toggle">
-            <button
-              type="button"
-              className={`qp-scope-btn ${sourceScope === 'all' ? 'active' : ''}`}
-              onClick={() => {
-                setSourceScope('all');
-                fetchSources('all');
-              }}
-            >
-              <Globe size={13} />
-              <span>All Sources</span>
-            </button>
-            <button
-              type="button"
-              className={`qp-scope-btn ${sourceScope === 'mine' ? 'active' : ''}`}
-              onClick={() => {
-                setSourceScope('mine');
-                fetchSources('mine');
-              }}
-            >
-              <User size={13} />
-              <span>My Sources</span>
-            </button>
-          </div>
-
           {/* Search & Batch Controls */}
           <div className="qp-search-row">
             <div className="qp-search-field">
@@ -656,7 +627,7 @@ export default function QueryPlayground({ onNavigateToIngest }) {
               </button>
               <button
                 className="qp-mini-btn"
-                onClick={() => fetchSources(sourceScope)}
+                onClick={() => fetchSources()}
                 title="Refresh"
               >
                 <RefreshCw size={13} className={sourcesLoading ? 'qp-spin' : ''} />
@@ -703,7 +674,8 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                 <p className="qp-empty-desc">
                   {sourceSearch
                     ? 'Try a different search term.'
-                    : `No sources in ${sourceScope === 'mine' ? 'your uploads' : 'the knowledge base'}.`}
+                    : 'No sources in the knowledge base.'
+                  }
                 </p>
                 {sourceSearch ? (
                   <button className="qp-btn qp-btn-xs" onClick={() => setSourceSearch('')}>
@@ -735,11 +707,6 @@ export default function QueryPlayground({ onNavigateToIngest }) {
                           {getSourceIcon(source.type)}
                           <span>{(source.type || 'file').toUpperCase()}</span>
                         </span>
-                        {sourceScope === 'all' && (
-                          <span className={`qp-owner-tag ${source.is_mine ? 'qp-owner-you' : 'qp-owner-shared'}`}>
-                            {source.is_mine ? 'You' : (source.owner || 'Shared')}
-                          </span>
-                        )}
                       </div>
 
                       <div className="qp-card-name" title={source.name}>

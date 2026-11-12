@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
-import { 
-  FileText, 
-  Image as ImageIcon, 
-  Video, 
-  Headphones, 
+import {
+  FileText,
+  Image as IMAGE,
+  Video,
+  Headphones,
   Globe,
-  Upload, 
+  Upload,
   Loader2,
   CheckCircle2,
   AlertCircle,
   Sparkles,
   FileSpreadsheet,
-  Presentation
+  Presentation,
+  RefreshCw,
+  X
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
@@ -23,6 +25,11 @@ export default function UploadContent({ onUploadSuccess }) {
   const [loading, setLoading] = useState({});
   const [toast, setToast] = useState(null);
   const [dragOverCard, setDragOverCard] = useState(null);
+
+  // Replace Content modal state
+  const [showReplaceModal, setShowReplaceModal] = useState(false);
+  const [replaceContentId, setReplaceContentId] = useState('');
+  const [replaceFile, setReplaceFile] = useState(null);
 
   const RAW_TEXT_MAX_WORDS = 200;
 
@@ -48,10 +55,9 @@ export default function UploadContent({ onUploadSuccess }) {
     formData.append('name', file.name.substring(0, file.name.lastIndexOf('.')) || file.name);
 
     try {
-      const token = localStorage.getItem('zymerag_access_token');
       const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: {},
         body: formData,
       });
 
@@ -76,10 +82,9 @@ export default function UploadContent({ onUploadSuccess }) {
     Object.entries(fields).forEach(([field, value]) => formData.append(field, value));
 
     try {
-      const token = localStorage.getItem('zymerag_access_token');
       const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: {},
         body: formData,
       });
 
@@ -111,7 +116,7 @@ export default function UploadContent({ onUploadSuccess }) {
     if (ok) setWebsiteUrl('');
   };
 
-  const handleRawTextSubmit = async () => {
+const handleRawTextSubmit = async () => {
     const text = rawText.trim();
     if (!text || rawTextTooLong) return;
     const name = rawTextName.trim() || text.slice(0, 40);
@@ -119,11 +124,49 @@ export default function UploadContent({ onUploadSuccess }) {
       { text, name, idempotent_key: `${name}-${text.length}` },
       '/upload/upload_raw_text',
       'raw',
-      `Successfully ingested raw text snippet "${name}"!`
+      `Successfully ingested raw text snippet "${name}!"`
     );
     if (ok) {
       setRawText('');
       setRawTextName('');
+    }
+  };
+
+  const handleReplaceContent = async () => {
+    if (!replaceFile || !replaceContentId.trim()) {
+      setToast({ msg: 'Please select a file and enter a content ID', type: 'error' });
+      return;
+    }
+    if (replaceFile.size > 15 * 1024 * 1024) {
+      setToast({ msg: 'File exceeds maximum limit of 15MB', type: 'error' });
+      return;
+    }
+    setLoading(prev => ({ ...prev, replace: true }));
+    const formData = new FormData();
+    formData.append('content_id', replaceContentId.trim());
+    formData.append('file', replaceFile);
+    formData.append('name', replaceFile.name.substring(0, replaceFile.name.lastIndexOf('.')) || replaceFile.name);
+
+    try {
+      const res = await fetch(`${API_BASE}/upload/replace_content`, {
+        method: 'POST',
+        headers: {},
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setToast({ msg: `Content replaced successfully! Old: ${data.old_id} → New: ${data.new_id}`, type: 'success' });
+        if (onUploadSuccess) onUploadSuccess();
+        setShowReplaceModal(false);
+        setReplaceContentId('');
+        setReplaceFile(null);
+      } else {
+        setToast({ msg: data.detail || 'Replace failed', type: 'error' });
+      }
+    } catch (err) {
+      setToast({ msg: `Replace error: ${err.message}`, type: 'error' });
+    } finally {
+      setLoading(prev => ({ ...prev, replace: false }));
     }
   };
 
@@ -366,7 +409,7 @@ export default function UploadContent({ onUploadSuccess }) {
         >
           <div className="card-top-header">
             <div className="icon-wrapper icon-violet">
-              <ImageIcon size={22} />
+              <IMAGE size={22} />
             </div>
             <div>
               <h3 className="card-heading">Multimodal Images</h3>
@@ -555,7 +598,109 @@ export default function UploadContent({ onUploadSuccess }) {
           </div>
         </div>
 
+        {/* Card 6: Replace Existing Content */}
+        <div className="ingestion-card">
+          <div className="card-top-header">
+            <div className="icon-wrapper icon-emerald">
+              <RefreshCw size={22} />
+            </div>
+            <div>
+              <h3 className="card-heading">Replace Existing Content</h3>
+              <p className="card-subtext">Swap an ingested document/feed with a new file, keeping the same source ID</p>
+            </div>
+          </div>
+
+          <div className="web-ingest-box">
+            <input
+              type="text"
+              className="custom-textarea url-input"
+              placeholder="Content ID to replace (e.g. from Ingested Sources table)"
+              value={replaceContentId}
+              onChange={(e) => setReplaceContentId(e.target.value)}
+              disabled={loading.replace}
+            />
+            <label className="custom-dropzone" style={{ marginTop: '12px' }}>
+              <input
+                type="file"
+                accept=".pdf,.docx,.csv,.pptx,image/*,video/*,audio/*"
+                onChange={(e) => {
+                  if (e.target.files[0]) {
+                    setReplaceFile(e.target.files[0]);
+                  }
+                }}
+                disabled={loading.replace}
+              />
+              {loading.replace ? (
+                <div className="loading-spinner-box">
+                  <Loader2 className="animate-spin text-emerald" size={28} />
+                  <span className="uploading-text">Replacing content...</span>
+                </div>
+              ) : (
+                <>
+                  <Upload className="dropzone-svg-icon text-emerald" size={28} />
+                  <div className="dropzone-main-text">
+                    {replaceFile ? replaceFile.name : 'Drop new file or browse'}
+                  </div>
+                  <span className="dropzone-sub-text">Supported: .pdf, .docx, .csv, .pptx, images, video, audio (up to 15MB)</span>
+                </>
+              )}
+            </label>
+            <div className="web-ingest-footer">
+              <span className="text-count-hint">Same source ID is preserved after replacement</span>
+              <button
+                className="btn-submit-web btn-emerald"
+                disabled={!replaceFile || !replaceContentId.trim() || loading.replace}
+                onClick={handleReplaceContent}
+              >
+                {loading.replace ? (
+                  <span className="btn-spinner-content">
+                    <Loader2 className="animate-spin" size={14} />
+                    <span>Replacing...</span>
+                  </span>
+                ) : (
+                  'Replace Content'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
       </div>
+
+      {/* Replace Content Confirmation Modal */}
+      {showReplaceModal && (
+        <div className="modal-backdrop" onClick={() => setShowReplaceModal(false)}>
+          <div className="modal-card metadata-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header-styled">
+              <div className="flex-header-title">
+                <div className="modal-icon-badge badge-emerald">
+                  <RefreshCw size={18} />
+                </div>
+                <div>
+                  <h3 className="modal-title-text">Replace Content</h3>
+                  <p className="modal-subtitle-text">Swap an existing source with a new file</p>
+                </div>
+              </div>
+              <button onClick={() => setShowReplaceModal(false)} className="modal-close-icon-btn">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-body-container">
+              <p className="info-value-text">
+                This will delete the old chunks and content record for ID <strong>{replaceContentId}</strong> and ingest the new file under the same ID.
+              </p>
+            </div>
+            <div className="modal-footer-styled">
+              <button onClick={() => setShowReplaceModal(false)} className="primary-modal-btn" style={{ background: '#6b7280' }}>
+                Cancel
+              </button>
+              <button onClick={handleReplaceContent} className="primary-modal-btn">
+                Replace
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

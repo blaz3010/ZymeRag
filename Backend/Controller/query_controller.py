@@ -1,25 +1,21 @@
 import asyncio
 from typing import List, Optional
-from fastapi import Depends, HTTPException, Query
+from fastapi import HTTPException, Query
 from pydantic import BaseModel
 import tiktoken
 from Backend.Utils.Logger import logger
 from Query.DirectQuery import get_all_chunks
 from LLM.Llm import generate_answer
-from Backend.Middleware.auth import auth_middleware
 from Utils.PickleReader import read_pickle_file
 from Dbhelper.user_mapping_db_helper import (
-    get_user_content_ids,
-    get_user_feed_ids,
-    get_user_sources_with_details,
     get_all_sources_with_details,
     get_all_active_source_ids,
 )
 from Dbhelper.query_db_helper import (
-    save_user_query,
-    get_user_queries,
-    delete_user_query,
-    clear_user_query_history,
+    save_query,
+    get_queries,
+    delete_query,
+    clear_query_history,
 )
 from Dbhelper.document_chunks_db_helper import get_chunks_by_source_id
 from Query.WebSearchFallback import web_search_fallback
@@ -32,7 +28,7 @@ class QueryRequest(BaseModel):
     max_web_results: int = 5
 
 
-class UserQueryRequest(BaseModel):
+class QueryBodyRequest(BaseModel):
     question: str
     selected_ids: List[str]
 
@@ -143,10 +139,10 @@ async def query_endpoint_fullcontext(question: str = Query(...), ids: list[str] 
     return answer
 
 
-async def user_query_endpoint(body: UserQueryRequest, user_id: str = Depends(auth_middleware)):
+async def user_query_endpoint(body: QueryBodyRequest):
     """
-    Auth-protected query endpoint for the RAG Playground.
-    1. Validates selected sources ownership (content_ids & feed_ids).
+    Public query endpoint for the RAG Playground.
+    1. Validates selected sources exist in the system.
     2. Runs hybrid RAG search (BM25 + Dense FAISS embeddings).
     3. Synthesizes response with LLM.
     4. Automatically logs query record with linked content_ids and feed_ids into the database.
@@ -159,16 +155,12 @@ async def user_query_endpoint(body: UserQueryRequest, user_id: str = Depends(aut
     selected_ids = body.selected_ids or []
     if not selected_ids:
         raise HTTPException(status_code=400, detail="Please select at least one document or source to query against")
-    user_content_ids = set(await get_user_content_ids(user_id))
-    user_feed_ids = set(await get_user_feed_ids(user_id))
-    all_user_ids = user_content_ids | user_feed_ids
     all_system_ids = set(await get_all_active_source_ids())
-    allowed_ids = all_user_ids | all_system_ids
-    valid_ids = [sid for sid in selected_ids if sid in allowed_ids]
+    valid_ids = [sid for sid in selected_ids if sid in all_system_ids]
     if not valid_ids:
-        raise HTTPException(status_code=403, detail="None of the selected sources are available or exist in your knowledge base")
-    matched_content_ids = [sid for sid in valid_ids if sid in (user_content_ids | all_system_ids)]
-    matched_feed_ids = [sid for sid in valid_ids if sid in (user_feed_ids | all_system_ids)]
+        raise HTTPException(status_code=403, detail="None of the selected sources exist in the knowledge base")
+    matched_content_ids = [sid for sid in valid_ids]
+    matched_feed_ids = [sid for sid in valid_ids]
     chunks = []
     try:
         chunks = await get_all_chunks(question, valid_ids)
@@ -189,8 +181,7 @@ async def user_query_endpoint(body: UserQueryRequest, user_id: str = Depends(aut
         except Exception as e:
             logger.exception("[user_query_endpoint] LLM answer generation failed: %s", e)
             raise HTTPException(status_code=502, detail=f"LLM answer generation failed: {e}")
-    saved_record = await save_user_query(
-        user_id=user_id,
+    saved_record = await save_query(
         question=question,
         answer=answer,
         content_ids=matched_content_ids,
@@ -205,41 +196,31 @@ async def user_query_endpoint(body: UserQueryRequest, user_id: str = Depends(aut
     }
 
 
-async def get_query_history_endpoint(limit: int = 50, user_id: str = Depends(auth_middleware)):
-    """Fetch query evaluation history for the logged-in user."""
-    history = await get_user_queries(user_id=user_id, limit=limit)
+async def get_query_history_endpoint(limit: int = 50):
+    """Fetch query evaluation history."""
+    history = await get_queries(limit=limit)
     return {"history": history}
 
 
-async def delete_query_history_endpoint(query_id: str, user_id: str = Depends(auth_middleware)):
+async def delete_query_history_endpoint(query_id: str):
     """Delete a specific test query from history."""
-    success = await delete_user_query(query_id=query_id, user_id=user_id)
+    success = await delete_query(query_id=query_id)
     return {"success": success, "message": "Query record removed"}
 
 
-async def clear_query_history_endpoint(user_id: str = Depends(auth_middleware)):
-    """Clear all test query history for the user."""
-    await clear_user_query_history(user_id=user_id)
+async def clear_query_history_endpoint():
+    """Clear all test query history."""
+    await clear_query_history()
     return {"success": True, "message": "Query history cleared"}
 
 
-async def get_user_queryable_sources(user_id: str = Depends(auth_middleware)):
-    """Return all sources owned by the user with details for the RAG Playground selector."""
-    try:
-        sources = await get_user_sources_with_details(user_id)
-        return {"sources": sources}
-    except Exception as e:
-        logger.exception("[get_user_queryable_sources] Failed to fetch sources: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-async def get_all_queryable_sources(user_id: str = Depends(auth_middleware)):
+async def get_queryable_sources():
     """Return all sources in the system with details for the RAG Playground selector."""
     try:
-        sources = await get_all_sources_with_details(current_user_id=user_id)
+        sources = await get_all_sources_with_details()
         return {"sources": sources}
     except Exception as e:
-        logger.exception("[get_all_queryable_sources] Failed to fetch all sources: %s", e)
+        logger.exception("[get_queryable_sources] Failed to fetch all sources: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
