@@ -121,3 +121,19 @@ async def delete_website_from_database(feed_id: str) -> bool:
     except Exception:
         logger.exception("[website_db_helper] Unexpected error soft deleting website feed_id=%s", feed_id)
         return False
+
+async def get_website_id_by_url(url: str) -> int | None:
+    """Return the active website feed ID for a URL, if it exists."""
+    try:
+        async with AsyncDB() as s:
+            result = await s.execute(
+                text("SELECT id FROM feeds WHERE url = :url AND deleted_at IS NULL LIMIT 1"),
+                {"url": url},
+            )
+            return result.scalar_one_or_none()
+    except SQLAlchemyError:
+        logger.exception("[website_db_helper] Database error fetching website URL=%s", url)
+        return None
+    except Exception:
+        logger.exception("[website_db_helper] Unexpected error fetching website URL=%s", url)
+        return None

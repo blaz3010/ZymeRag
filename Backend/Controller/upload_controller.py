@@ -5,7 +5,7 @@ import sys
 import os
 from io import BytesIO
 from typing import List, Optional
-
+from Dbhelper.website_db_helper import get_website_id_by_url
 from DocsIngestion.AudioVideoIngestion import ingestaudio, ingestvideo
 from DocsIngestion.PptxIngestion import ingest_pptx
 from WebsiteIngestion.websiteingestion import ingest_website
@@ -162,9 +162,13 @@ async def upload_website(url: str = Form(...), idempotent_key: Optional[str] = F
             if idempotent_key:
                 if idempotent_key in idempotent_keys:
                     return {"message": "Duplicate request", "status": "success", "id": idempotent_keys[idempotent_key]}
+                
         if not re.match(URL_PATTERN, url or ""):
             raise HTTPException(status_code=400, detail="Invalid URL. A valid http/https URL is required.")
         idempotent_keys[idempotent_key]=1
+        already_uploaded_id = await get_website_id_by_url(url)
+        if already_uploaded_id is not None:
+            return {"message": "website uploaded successfully","status": "success" ,"id": upload_id_website}
         print("Ingesting website...")
         upload_id_website=await ingest_website(url)
         if upload_id_website is None:
