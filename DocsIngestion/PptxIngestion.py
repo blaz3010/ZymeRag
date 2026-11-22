@@ -13,7 +13,7 @@ from Dbhelper.document_chunks_db_helper import (
 from Dbhelper.pdf_db_helper import save_content_to_database
 from Splitter.PdfSplitter import pdf_splitter
 from Embeddings.Embeddingmaker import embedder as embedding_maker
-
+from Backend.Utils.Logger import logger
 pptx_semaphore=asyncio.Semaphore(2)
 def extract_text_from_pptx(file_bytes):
     presentation = Presentation(BytesIO(file_bytes))
@@ -50,12 +50,12 @@ async def ingest_pptx(file, name: str):
             file_bytes = await file.read()
             markdown = await asyncio.to_thread(extract_text_from_pptx, file_bytes)
         if not markdown or not markdown.strip():
-            print(f"No extractable text in {file.filename} (scanned PDF? try OCR)")
+            logger.info(f"No extractable text in {file.filename} (scanned PDF? try OCR)")
             return None
 
         chunks = await asyncio.to_thread(pdf_splitter.split, markdown)
         if not chunks:
-            print(f"Splitter produced no chunks for {file.filename}")
+            logger.info(f"Splitter produced no chunks for {file.filename}")
             return None
 
         database_saved = await save_content_to_database(
@@ -76,18 +76,18 @@ async def ingest_pptx(file, name: str):
             feed_id=None,
         )
 
-        print(f"PDF index built for: {file.filename}")
-        print(f"Database save status for PDF: {file.filename} - {database_saved}")
-        print(f"PDF ingested and saved to database with ID: {content_id}")
+        logger.info(f"PDF index built for: {file.filename}")
+        logger.info(f"Database save status for PDF: {file.filename} - {database_saved}")
+        logger.info(f"PDF ingested and saved to database with ID: {content_id}")
         return content_id
 
     except Exception as e:
-        print(f"Error occurred while ingesting PDF: {e}")
+        logger.error(f"Error occurred while ingesting PDF: {e}")
 
         if chunks_save_started:
             try:
                 await delete_chunks_from_database(content_id=content_id)
             except Exception as cleanup_error:
-                print(f"Cleanup failed for {content_id}: {cleanup_error}")
+                logger.error(f"Cleanup failed for {content_id}: {cleanup_error}")
 
         return None

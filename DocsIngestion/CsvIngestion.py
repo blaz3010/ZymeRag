@@ -12,7 +12,7 @@ from Dbhelper.document_chunks_db_helper import (
 )
 from Dbhelper.pdf_db_helper import save_content_to_database
 from Embeddings.Embeddingmaker import embedder as embedding_maker
-
+from Backend.Utils.Logger import logger
 
 def _read_csv(csv_bytes: bytes) -> pd.DataFrame:
     try:
@@ -72,7 +72,7 @@ async def ingestCsv(file, name: str):
         csv_bytes = await file.read()
         chunks = await asyncio.to_thread(_csv_to_documents_sync, csv_bytes)
         if not chunks:
-            print(f"CSV '{name}' has no usable rows")
+            logger.info(f"CSV '{name}' has no usable rows")
             return None
 
         database_saved = await save_content_to_database(
@@ -93,16 +93,16 @@ async def ingestCsv(file, name: str):
             feed_id=None,
         )
 
-        print(f"CSV ingested and saved to database with ID: {content_id}")
+        logger.info(f"CSV ingested and saved to database with ID: {content_id}")
         return content_id
 
     except Exception as e:
-        print(f"Error occurred while ingesting CSV '{name}': {e}")
+        logger.error(f"Error occurred while ingesting CSV '{name}': {e}")
 
         if chunks_save_started:
             try:
                 await delete_chunks_from_database(content_id=content_id)
             except Exception as cleanup_error:
-                print(f"Cleanup failed for {content_id}: {cleanup_error}")
+                logger.error(f"Cleanup failed for {content_id}: {cleanup_error}")
 
         return None

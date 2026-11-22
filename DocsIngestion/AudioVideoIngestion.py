@@ -14,7 +14,7 @@ from Dbhelper.document_chunks_db_helper import (
 from Dbhelper.pdf_db_helper import save_content_to_database
 from Embeddings.Embeddingmaker import embedder as embedding_maker
 from Splitter.PdfSplitter import pdf_splitter
-
+from Backend.Utils.Logger import logger
 _whisper_model = None
 _whisper_lock = threading.Lock()
 _transcribe_semaphore = asyncio.Semaphore(1)
@@ -146,12 +146,12 @@ async def build_and_save_index(chunks, content_id=None, feed_id=None) -> bool:
 
 async def _ingest_transcript(text: str, name: str, doc_type: str):
     if not text or not text.strip():
-        print(f"No speech detected in {doc_type} '{name}'")
+        logger.info(f"No speech detected in {doc_type} '{name}'")
         return None
 
     chunks = await asyncio.to_thread(pdf_splitter.split, text)
     if not chunks:
-        print(f"Splitter produced no chunks for {doc_type} '{name}'")
+        logger.info(f"Splitter produced no chunks for {doc_type} '{name}'")
         return None
 
     content_id = str(uuid.uuid4())
@@ -169,9 +169,6 @@ async def _ingest_transcript(text: str, name: str, doc_type: str):
                 f"Failed to save content record for {content_id}; "
                 "chunks were not inserted"
             )
-
-        # Set before saving because a later batch may fail after earlier
-        # batches have already been inserted.
         chunks_save_started = True
         await build_and_save_index(
             chunks,
@@ -179,7 +176,7 @@ async def _ingest_transcript(text: str, name: str, doc_type: str):
             feed_id=None,
         )
 
-        print(
+        logger.info(
             f"{doc_type.capitalize()} ingested and saved to database "
             f"with ID: {content_id}"
         )
@@ -190,7 +187,7 @@ async def _ingest_transcript(text: str, name: str, doc_type: str):
             try:
                 await delete_chunks_from_database(content_id=content_id)
             except Exception as cleanup_error:
-                print(f"Cleanup failed for {content_id}: {cleanup_error}")
+                logger.error(f"Cleanup failed for {content_id}: {cleanup_error}")
         raise
 
 
@@ -199,7 +196,7 @@ async def ingestaudio(file, name: str):
         text = await read_text_from_audio(file)
         return await _ingest_transcript(text, name, "audio")
     except Exception as e:
-        print(f"Error occurred while processing audio '{name}': {e}")
+        logger.error(f"Error occurred while processing audio '{name}': {e}")
         return None
 
 
@@ -208,5 +205,5 @@ async def ingestvideo(file, name: str):
         text = await read_text_from_video(file)
         return await _ingest_transcript(text, name, "video")
     except Exception as e:
-        print(f"Error occurred while processing video '{name}': {e}")
+        logger.error(f"Error occurred while processing video '{name}': {e}")
         return None

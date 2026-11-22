@@ -10,7 +10,7 @@ from Dbhelper.document_chunks_db_helper import (
 from Dbhelper.pdf_db_helper import save_content_to_database
 from Embeddings.Embeddingmaker import embedder as embedding_maker
 from Splitter.PdfSplitter import pdf_splitter
-
+from Backend.Utils.Logger import logger
 SPLIT_THRESHOLD_CHARS = 300
 RAW_TEXT_MAX_WORDS = 200
 text_semaphore = asyncio.Semaphore(5)
@@ -63,17 +63,17 @@ async def _ingest_chunks(chunks, name: str, label: str):
             feed_id=None,
         )
 
-        print(f"{label} ingested and saved to database with ID: {content_id}")
+        logger.info(f"{label} ingested and saved to database with ID: {content_id}")
         return content_id
 
     except Exception as e:
-        print(f"Error occurred while ingesting {label} '{name}': {e}")
+        logger.error(f"Error occurred while ingesting {label} '{name}': {e}")
 
         if chunks_save_started:
             try:
                 await delete_chunks_from_database(content_id=content_id)
             except Exception as cleanup_error:
-                print(f"Cleanup failed for {content_id}: {cleanup_error}")
+                logger.error(f"Cleanup failed for {content_id}: {cleanup_error}")
 
         return None
 
@@ -83,7 +83,7 @@ async def ingestText(text: str, name: str):
         async with text_semaphore:
             text = (text or "").strip()
             if not text:
-                print("Empty text provided, nothing to ingest")
+                logger.info("Empty text provided, nothing to ingest")
                 return None
 
         if len(text) > SPLIT_THRESHOLD_CHARS:
@@ -92,13 +92,13 @@ async def ingestText(text: str, name: str):
             chunks = [Document(page_content=text)]
 
         if not chunks:
-            print(f"Splitter produced no chunks for text '{name}'")
+            logger.info(f"Splitter produced no chunks for text '{name}'")
             return None
 
         return await _ingest_chunks(chunks, name, "Text")
 
     except Exception as e:
-        print(f"Error occurred while preparing text '{name}': {e}")
+        logger.error(f"Error occurred while preparing text '{name}': {e}")
         return None
 
 
@@ -106,16 +106,16 @@ async def ingest_raw_text(text: str, name: str):
     try:
         text = (text or "").strip()
         if not text:
-            print("Empty raw text provided, nothing to ingest")
+            logger.info("Empty raw text provided, nothing to ingest")
             return None
 
         if count_words(text) > RAW_TEXT_MAX_WORDS:
-            print(f"Raw text exceeds {RAW_TEXT_MAX_WORDS} words, rejected")
+            logger.info(f"Raw text exceeds {RAW_TEXT_MAX_WORDS} words, rejected")
             return None
 
         chunks = [Document(page_content=text)]
         return await _ingest_chunks(chunks, name, "Raw text")
 
     except Exception as e:
-        print(f"Error occurred while preparing raw text '{name}': {e}")
+        logger.error(f"Error occurred while preparing raw text '{name}': {e}")
         return None

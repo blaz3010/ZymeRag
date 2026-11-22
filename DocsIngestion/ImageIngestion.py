@@ -12,7 +12,7 @@ from Dbhelper.document_chunks_db_helper import (
 from Dbhelper.pdf_db_helper import save_content_to_database
 from Embeddings.Embeddingmaker import embedder as embedding_maker
 from Splitter.PdfSplitter import pdf_splitter
-
+from Backend.Utils.Logger import logger
 _ocr_engine = None
 image_semaphore = asyncio.Semaphore(2)
 
@@ -32,7 +32,7 @@ def get_ocr_engine():
                 device=device,
             )
         except Exception as e:
-            print(f"PaddleOCR unavailable, falling back to pytesseract: {e}")
+            logger.error(f"PaddleOCR unavailable, falling back to pytesseract: {e}")
             _ocr_engine = False
     return _ocr_engine
 
@@ -83,12 +83,12 @@ async def ingestimage(file, name: str):
         async with image_semaphore:
             text = await read_text_from_image(file)
         if not text or not text.strip():
-            print(f"No text detected in image {name}")
+            logger.info(f"No text detected in image {name}")
             return None
 
         chunks = await asyncio.to_thread(pdf_splitter.split, text)
         if not chunks:
-            print(f"Splitter produced no chunks for image {name}")
+            logger.info(f"Splitter produced no chunks for image {name}")
             return None
 
         database_saved = await save_content_to_database(
@@ -102,9 +102,6 @@ async def ingestimage(file, name: str):
                 f"Failed to save content record for {content_id}; "
                 "chunks were not inserted"
             )
-
-        # Set before starting because a later batch may fail after earlier
-        # batches have already been inserted.
         chunks_save_started = True
         await build_and_save_index(
             chunks,
@@ -112,16 +109,16 @@ async def ingestimage(file, name: str):
             feed_id=None,
         )
 
-        print(f"Image ingested and saved to database with ID: {content_id}")
+        logger.info(f"Image ingested and saved to database with ID: {content_id}")
         return content_id
 
     except Exception as e:
-        print(f"Error occurred while processing image {name}: {e}")
+        logger.error(f"Error occurred while processing image {name}: {e}")
 
         if chunks_save_started:
             try:
                 await delete_chunks_from_database(content_id=content_id)
             except Exception as cleanup_error:
-                print(f"Cleanup failed for {content_id}: {cleanup_error}")
+                logger.error(f"Cleanup failed for {content_id}: {cleanup_error}")
 
         return None

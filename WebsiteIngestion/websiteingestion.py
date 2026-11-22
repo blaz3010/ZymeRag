@@ -38,7 +38,7 @@ config = CrawlerRunConfig(
     markdown_generator=markdown_generator,
 )
 
-from Backend.Utils import logger
+from Backend.Utils.Logger import logger
 _CRAWL_LIMIT = asyncio.Semaphore(2)
 
 
