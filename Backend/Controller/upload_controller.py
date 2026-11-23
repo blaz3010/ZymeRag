@@ -10,6 +10,7 @@ from DocsIngestion.AudioVideoIngestion import ingestaudio, ingestvideo
 from DocsIngestion.PptxIngestion import ingest_pptx
 from WebsiteIngestion.websiteingestion import ingest_website
 from DocsIngestion.TextIngestion import ingest_raw_text, count_words, RAW_TEXT_MAX_WORDS
+from Backend.Utils.Logger import logger
 lock = asyncio.Lock()
 URL_PATTERN = r"(https?://[^\s]+)"
 MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -36,6 +37,7 @@ async def upload_pdf(file: UploadFile = File(...), name: str = Form(...), idempo
         if file.content_type not in ["application/pdf"]:
             raise HTTPException(status_code=400, detail="Invalid file type. Only PDF files are allowed.")
         idempotent_keys[idempotent_key]=1
+        logger.info("Received request to upload PDF File with name: %s", name)
         print("Ingesting PDF file...")
         upload_id_pdf=await ingest_pdf(file, name)
         if upload_id_pdf is None:
@@ -43,6 +45,7 @@ async def upload_pdf(file: UploadFile = File(...), name: str = Form(...), idempo
             raise HTTPException(status_code=400, detail="Failed to upload PDF")
         return {"message": "PDF uploaded successfully", "status": "success", "id": upload_id_pdf}
     except Exception as e:
+        logger.error(f"Error occurred while uploading PDF: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -55,6 +58,7 @@ async def upload_docx(file: UploadFile = File(...), name: str = Form(...), idemp
         if file.content_type not in ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]:
             raise HTTPException(status_code=400, detail="Invalid file type. Only DOCX files are allowed.")
         idempotent_keys[idempotent_key]=1
+        logger.info("Received request to upload DOCX File with name: %s", name)
         file_size_bytes=file.size
         file_size_mb = file_size_bytes / (1024 * 1024)
         if file_size_mb > 10:
@@ -86,8 +90,10 @@ async def upload_image(file: UploadFile = File(...), name: str = Form(...), idem
         if upload_id_image is None:
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="Failed to upload image")
+        logger.info("Image uploaded successfully with ID: %s", upload_id_image)
         return {"message": "image uploaded successfully", "status": "success", "id": upload_id_image}
     except Exception as e:
+        logger.error(f"Error occurred while uploading image: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 async def upload_csv(file: UploadFile = File(...), name: str = Form(...), idempotent_key: Optional[str] = Form(None)):
@@ -105,12 +111,14 @@ async def upload_csv(file: UploadFile = File(...), name: str = Form(...), idempo
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="File size exceeds the maximum limit of 10MB")
         upload_id_csv=await ingestCsv(file,name)
+        logger.info("CSV uploaded successfully with ID: %s", upload_id_csv)
         if upload_id_csv is None:
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="Failed to upload csv")
         return {"message": "csv uploaded successfully", "status": "success", "id": upload_id_csv}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
+        logger.error(f"Error occurred while uploading CSV: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 async def upload_audio(file: UploadFile = File(...), name: str = Form(...), idempotent_key: Optional[str] = Form(None)):
     try:
@@ -127,11 +135,13 @@ async def upload_audio(file: UploadFile = File(...), name: str = Form(...), idem
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="File size exceeds the maximum limit of 10MB")
         upload_id_audio=await ingestaudio(file,name)
+        logger.info("Audio uploaded successfully with ID: %s", upload_id_audio)
         if upload_id_audio is None:
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="Failed to upload audio")
         return {"message": "audio uploaded successfully", "status": "success", "id": upload_id_audio}
     except Exception as e:
+        logger.error(f"Error occurred while uploading audio: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 async def upload_video(file: UploadFile = File(...), name: str = Form(...), idempotent_key: Optional[str] = Form(None)):
@@ -149,11 +159,13 @@ async def upload_video(file: UploadFile = File(...), name: str = Form(...), idem
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="File size exceeds the maximum limit of 10MB")
         upload_id_video=await ingestvideo(file,name)
+        logger.info("Video uploaded successfully with ID: %s", upload_id_video)
         if upload_id_video is None:
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="Failed to upload video")
         return {"message": "video uploaded successfully", "status": "success", "id": upload_id_video}
     except Exception as e:
+        logger.error(f"Error occurred while uploading video: {str(e)}") 
         raise HTTPException(status_code=500, detail=str(e))
 
 async def upload_website(url: str = Form(...), idempotent_key: Optional[str] = Form(None)):
@@ -168,12 +180,14 @@ async def upload_website(url: str = Form(...), idempotent_key: Optional[str] = F
         idempotent_keys[idempotent_key]=1
         already_uploaded_id = await get_website_id_by_url(url)
         if already_uploaded_id is not None:
-            return {"message": "website uploaded successfully","status": "success" ,"id": upload_id_website}
-        print("Ingesting website...")
+            logger.info("Website already uploaded with ID: %s", already_uploaded_id)
+            return {"message": "website uploaded successfully","status": "success" ,"id": already_uploaded_id}
+        logger.info("Ingesting website...")
         upload_id_website=await ingest_website(url)
         if upload_id_website is None:
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="Failed to upload website")
+        logger.info("Website uploaded successfully with ID: %s", upload_id_website)
         return {"message": "website uploaded successfully","status": "success" ,"id": upload_id_website}
     except HTTPException:
         raise
@@ -183,7 +197,7 @@ async def upload_website(url: str = Form(...), idempotent_key: Optional[str] = F
 
 async def upload_raw_text(text: str = Form(...), name: str = Form(...), idempotent_key: Optional[str] = Form(None)):
     try:
-        print("Received request to upload raw text")
+        logger.info("Received request to upload raw text with name: %s", name)
         async with lock:
             if idempotent_key:
                 if idempotent_key in idempotent_keys:
@@ -195,16 +209,18 @@ async def upload_raw_text(text: str = Form(...), name: str = Form(...), idempote
         if word_count > RAW_TEXT_MAX_WORDS:
             raise HTTPException(status_code=400, detail=f"Raw text must be {RAW_TEXT_MAX_WORDS} words or fewer (received {word_count})")
         idempotent_keys[idempotent_key]=1
-        print("Ingesting raw text...")
+        logger.info("Ingesting raw text...")
         upload_id_raw=await ingest_raw_text(text, name)
         if upload_id_raw is None:
             idempotent_keys.pop(idempotent_key, None)
             raise HTTPException(status_code=400, detail="Failed to upload raw text")
+        logger.info("Raw text uploaded successfully with ID: %s", upload_id_raw)
         return {"message": "raw text uploaded successfully", "status": "success", "id": upload_id_raw}
     except HTTPException:
         raise
     except Exception as e:
         idempotent_keys.pop(idempotent_key, None)
+        logger.error(f"Error occurred while uploading raw text: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 async def upload_presentation(file: UploadFile = File(...),name: str = Form(...),idempotent_key: Optional[str] = Form(None)):
@@ -220,8 +236,9 @@ async def upload_presentation(file: UploadFile = File(...),name: str = Form(...)
                 status_code=400,
                 detail="Only PPTX files are supported"
             )
-        print("Ingesting presentation...")
+        logger.info("Ingesting presentation...")
         upload_id = await ingest_pptx(file, name)
+        logger.info("Presentation uploaded successfully with ID: %s", upload_id)
         if upload_id is None:
             raise HTTPException(status_code=400,detail="Failed to upload presentation")
         if idempotent_key:
@@ -235,6 +252,7 @@ async def upload_presentation(file: UploadFile = File(...),name: str = Form(...)
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error occurred while uploading presentation: {str(e)}")
         raise HTTPException(status_code=500,detail=str(e))
 
 
@@ -243,7 +261,6 @@ async def replace_content(
     file: UploadFile = File(...),
     name: str = Form(...),
 ):
-    """Replace an existing document/feed with a new file, keeping the same logical source id."""
     from Dbhelper.pdf_db_helper import delete_content_from_database
     from Dbhelper.website_db_helper import delete_website_from_database
     from Dbhelper.document_chunks_db_helper import delete_chunks_from_database
