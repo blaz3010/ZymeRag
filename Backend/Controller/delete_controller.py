@@ -11,7 +11,7 @@ from fastapi import Form, HTTPException
 from Dbhelper.document_chunks_db_helper import delete_chunks_from_database, delete_source_row_by_id
 from Dbhelper.website_db_helper import delete_website_from_database
 from Dbhelper.pdf_db_helper import delete_content_from_database
-from Utils.Logger import logger
+from Backend.Utils.Logger import logger
 
 async def delete_id(id: str = Form(...)):
     try:
