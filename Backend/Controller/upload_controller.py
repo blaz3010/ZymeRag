@@ -261,15 +261,16 @@ async def replace_content(
     file: UploadFile = File(...),
     name: str = Form(...),
 ):
-    from Dbhelper.pdf_db_helper import delete_content_from_database
-    from Dbhelper.website_db_helper import delete_website_from_database
-    from Dbhelper.document_chunks_db_helper import delete_chunks_from_database
+    """Replace an existing document/feed with a new file, keeping the same logical source id."""
+    from Dbhelper.document_chunks_db_helper import (
+        delete_chunks_from_database,
+        delete_source_row_by_id,
+    )
 
     content_dir = os.path.join("Data", "Content", content_id)
     feed_dir = os.path.join("Data", "Feed", content_id)
-    is_feed = os.path.isdir(feed_dir) and not os.path.isdir(content_dir)
 
-    # --- Delete old content (reuse delete logic) ---
+    # --- Delete old content (reuse new delete logic) ---
     if os.path.isdir(content_dir):
         def _rm(p):
             try:
@@ -277,8 +278,6 @@ async def replace_content(
             except Exception as e:
                 print(f"[replace] rmtree error {p}: {e}")
         await asyncio.to_thread(_rm, content_dir)
-        await delete_content_from_database(content_id=content_id)
-        await delete_chunks_from_database(content_id=content_id)
     elif os.path.isdir(feed_dir):
         def _rm(p):
             try:
@@ -286,13 +285,12 @@ async def replace_content(
             except Exception as e:
                 print(f"[replace] rmtree error {p}: {e}")
         await asyncio.to_thread(_rm, feed_dir)
-        await delete_website_from_database(feed_id=content_id)
-        await delete_chunks_from_database(feed_id=content_id)
-    else:
-        await delete_content_from_database(content_id=content_id)
-        await delete_website_from_database(feed_id=content_id)
-        await delete_chunks_from_database(content_id=content_id)
-        await delete_chunks_from_database(feed_id=content_id)
+
+    await asyncio.gather(
+        delete_chunks_from_database(content_id=content_id),
+        delete_chunks_from_database(feed_id=content_id),
+        delete_source_row_by_id(content_id),
+    )
 
     # --- Ingest new file (reuse upload ingest logic) ---
     ext = os.path.splitext(file.filename or "")[1].lower()
